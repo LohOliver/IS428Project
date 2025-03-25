@@ -321,7 +321,6 @@ def get_avg_stringency_by_month():
         if location not in result:
             result[location] = {}
             
-        # Format month to ensure it's always two digits
         month_str = f"{int(month):02d}"
         date_key = f"{int(year)}-{month_str}"
         
