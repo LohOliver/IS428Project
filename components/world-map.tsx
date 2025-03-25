@@ -1,522 +1,407 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import * as d3 from "d3";
-import * as topojson from "topojson-client";
-import { Feature, FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
+import React, { useEffect, useRef, useState } from 'react';
+import * as d3 from 'd3';
 
+// Define interfaces
 interface StringencyData {
   country: string;
   code: string;
   value: number;
-  date?: string; // Changed from year to date string (YYYY-MM-DD)
+  date?: string;
 }
 
-// Updated interface for time series data using date strings as keys
 interface TimeSeriesData {
   [dateKey: string]: StringencyData[];
 }
 
 interface WorldMapProps {
   className?: string;
-  onCountryClick?: (countryName: string) => void;
-  stringencyData?: StringencyData[];
-  timeSeriesData?: TimeSeriesData; // Time series data with date keys
-  maxStringency?: number;
-  availableDates?: string[]; // Array of available dates in YYYY-MM-DD format
+  onCountryClick: (countryName: string) => void;
+  timeSeriesData: TimeSeriesData;
+  availableDates: string[];
+  maxStringency: number;
 }
 
-export const WorldMap: React.FC<WorldMapProps> = ({
-  className,
-  onCountryClick,
-  stringencyData = [],
-  timeSeriesData = {},
-  maxStringency = 100,
-  availableDates = [],
-}) => {
-  // If no dates are provided but we have timeSeriesData, extract dates from it
-  const actualDates = availableDates.length > 0 
-    ? availableDates 
-    : Object.keys(timeSeriesData).sort();
-  
-  console.log("Available dates:", actualDates);
-
+export function WorldMap({ 
+  className, 
+  onCountryClick, 
+  timeSeriesData, 
+  availableDates, 
+  maxStringency 
+}: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const legendRef = useRef<SVGGElement>(null);
-  
-  // Animation state - now using date strings
-  const [currentDateIndex, setCurrentDateIndex] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [animationSpeed, setAnimationSpeed] = useState<number>(1000); // ms between frames
-  const animationRef = useRef<number | null>(null);
-  const lastFrameTimeRef = useRef<number>(0);
+  const [worldGeoData, setWorldGeoData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentDateIndex, setCurrentDateIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState(1000); // ms between frames
+  const animationRef = useRef<NodeJS.Timeout | null>(null);
 
-  // World data cache to avoid repeated fetching
-  const [worldData, setWorldData] = useState<any>(null);
-
-  // Already defined currentDate above
-  
-  // Format the date for display
-  const formatDisplayDate = (dateString: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  // Get the current date string from the index
-  const currentDate = actualDates.length > 0 ? actualDates[currentDateIndex] : "";
-  
-  // Determine which data to use - either the static stringencyData or the date's data from timeSeriesData
-  const activeData = timeSeriesData[currentDate] || stringencyData;
-
-  // Effect for fetching world map data
+  // Load GeoJSON world data
   useEffect(() => {
-    const fetchData = async () => {
-      if (worldData) return; // Skip if we already have data
-      
+    const loadGeoData = async () => {
       try {
-        const response = await fetch(
-          "https://unpkg.com/world-atlas@2.0.2/countries-50m.json"
-        );
+        const response = await fetch('https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson');
+        if (!response.ok) {
+          throw new Error('Failed to fetch world geography data');
+        }
         const data = await response.json();
-        console.log("Fetched map data:", data);
-        setWorldData(data);
+        setWorldGeoData(data);
+        setLoading(false);
       } catch (error) {
-        console.error("Error fetching map data:", error);
+        console.error('Error loading geo data:', error);
+        setLoading(false);
       }
     };
 
-    fetchData();
-
-    // Cleanup function
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+    loadGeoData();
   }, []);
 
-  // Effect for drawing the map when data changes
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  };
+
+  // Animation control - play/pause
   useEffect(() => {
-    if (worldData) {
-      drawMap(worldData);
+    // Clear any existing animation
+    if (animationRef.current) {
+      clearInterval(animationRef.current);
+      animationRef.current = null;
     }
-  }, [worldData, activeData, maxStringency, selectedCountry, currentDate]);
-  
-  // Debug effect to see if data is available
-  useEffect(() => {
-    console.log("Component state:", {
-      hasWorldData: !!worldData,
-      availableDatesCount: actualDates.length,
-      currentDate,
-      firstFewDates: actualDates.slice(0, 3),
-      hasTimeSeriesData: Object.keys(timeSeriesData).length > 0,
-    });
-  }, [worldData, timeSeriesData, actualDates, currentDate]);
 
-  // Animation loop
-  useEffect(() => {
-    if (!isPlaying || actualDates.length <= 1) return;
+    // Start animation if playing
+    if (isPlaying && availableDates.length > 0) {
+      animationRef.current = setInterval(() => {
+        setCurrentDateIndex(prev => {
+          const nextIndex = (prev + 1) % availableDates.length;
+          return nextIndex;
+        });
+      }, animationSpeed);
+    }
 
-    const animate = (timestamp: number) => {
-      if (timestamp - lastFrameTimeRef.current >= animationSpeed) {
-        lastFrameTimeRef.current = timestamp;
-        
-        // Move to next date or loop back to start
-        setCurrentDateIndex(prevIndex => (prevIndex + 1) % actualDates.length);
-      }
-      
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-    
+    // Cleanup on unmount
     return () => {
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+        clearInterval(animationRef.current);
       }
     };
-  }, [isPlaying, currentDateIndex, actualDates, animationSpeed]);
+  }, [isPlaying, availableDates.length, animationSpeed]);
 
-  const togglePlayPause = () => {
-    setIsPlaying(prev => !prev);
-    lastFrameTimeRef.current = performance.now();
-  };
-
-  const handleDateSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newIndex = parseInt(event.target.value, 10);
-    setCurrentDateIndex(newIndex);
-  };
-
-  const stepForward = () => {
-    setCurrentDateIndex(prevIndex => (prevIndex + 1) % actualDates.length);
-  };
-
-  const stepBackward = () => {
-    setCurrentDateIndex(prevIndex => (prevIndex - 1 + actualDates.length) % actualDates.length);
-  };
-
-  const drawMap = (worldData: any) => {
-    if (!svgRef.current) return;
-
-    // Clear previous contents
-    d3.select(svgRef.current).selectAll("*").remove();
-
-    // Set up the svg container
-    const svg = d3.select(svgRef.current);
-    const width = svgRef.current.clientWidth;
-    const height = svgRef.current.clientHeight;
-
-    // Create tooltip if it doesn't exist
-    if (!tooltipRef.current) {
-      const tooltipDiv = document.createElement("div");
-      tooltipDiv.className = "absolute hidden p-2 bg-black bg-opacity-70 text-white text-xs rounded pointer-events-none";
-      document.body.appendChild(tooltipDiv);
-      tooltipRef.current = tooltipDiv;
+  // Create/update map when data changes
+  useEffect(() => {
+    if (!svgRef.current || !worldGeoData || !availableDates.length || Object.keys(timeSeriesData).length === 0) {
+      return;
     }
 
-    // Create a projection
-    const projection = d3
-      .geoMercator()
-      .scale((width - 3) / (2 * Math.PI))
-      .translate([width / 2, height / 2 + height * 0.2]);
+    try {
+      // Get current date data
+      const currentDate = availableDates[currentDateIndex];
+      const currentData = timeSeriesData[currentDate] || [];
 
-    // Create a path generator
-    const path = d3.geoPath().projection(projection);
+      // Clear previous content
+      const svg = d3.select(svgRef.current);
+      svg.selectAll('*').remove();
 
-    // Convert TopoJSON to GeoJSON
-    const geoData = topojson.feature(
-      worldData, 
-      worldData.objects.countries || worldData.objects.land || worldData.objects.nations
-    );
-    
-    // Ensure we have a FeatureCollection
-    const countries = geoData.type === "FeatureCollection" 
-      ? geoData 
-      : { type: "FeatureCollection", features: [geoData] };
+      // Set up dimensions
+      const width = svgRef.current.clientWidth || 800;
+      const height = svgRef.current.clientHeight || 400;
 
-    // Create a map of country codes to stringency values for faster lookup
-    const stringencyMap = new Map();
-    activeData.forEach(d => {
-      stringencyMap.set(d.code.toUpperCase(), d.value);
-    });
+      // Create projection
+      const projection = d3.geoNaturalEarth1()
+        .scale(width / 6)
+        .translate([width / 2, height / 2]);
 
-    // Color scale for countries based on stringency
-    const colorScale = d3
-      .scaleSequential(d3.interpolateBlues)
-      .domain([0, maxStringency]);
+      const pathGenerator = d3.geoPath().projection(projection);
 
-    // Draw countries
-    svg
-      .selectAll("path.country")
-      .data(countries.features)
-      .enter()
-      .append("path")
-      .attr("class", "country")
-      .attr("d", path as any)
-      .attr("fill", (d: any) => {
-        // Get country code
-        const countryCode = (d.properties.iso_a3 || d.properties.adm0_a3 || "").toUpperCase();
+      // Create color scale
+      const colorScale = d3.scaleSequential(d3.interpolateBlues)
+        .domain([0, maxStringency]);
+
+      // Create tooltip
+      const tooltip = d3.select(tooltipRef.current)
+        .style('position', 'absolute')
+        .style('visibility', 'hidden')
+        .style('background-color', 'white')
+        .style('border', '1px solid #ddd')
+        .style('padding', '10px')
+        .style('border-radius', '4px')
+        .style('pointer-events', 'none')
+        .style('font-size', '14px')
+        .style('box-shadow', '0 4px 8px rgba(0,0,0,0.1)');
+
+      // Function to find country data
+      const getCountryData = (countryName: string): StringencyData | undefined => {
+        if (!countryName || !currentData) return undefined;
         
-        // Get stringency value if available
-        const stringencyValue = stringencyMap.get(countryCode);
+        // Simple name matching
+        return currentData.find(d => 
+          d.country.toLowerCase() === countryName.toLowerCase() ||
+          countryName.toLowerCase().includes(d.country.toLowerCase()) ||
+          d.country.toLowerCase().includes(countryName.toLowerCase())
+        );
+      };
+
+      // Draw countries
+      svg.append('g')
+        .selectAll('path')
+        .data(worldGeoData.features)
+        .enter()
+        .append('path')
+        .attr('d', pathGenerator)
+        .attr('fill', (d: any) => {
+          const countryData = getCountryData(d.properties.name);
+          return countryData ? colorScale(countryData.value) : '#e0e0e0';
+        })
+        .attr('stroke', '#808080')
+        .attr('stroke-width', 0.5)
+        .attr('class', 'country')
+        .style('cursor', 'pointer')
+        .on('mouseover', function(event: any, d: any) {
+          d3.select(this)
+            .attr('stroke', '#333')
+            .attr('stroke-width', 1.5);
+            
+          const countryData = getCountryData(d.properties.name);
+          tooltip
+            .style('visibility', 'visible')
+            .html(`
+              <strong>${d.properties.name}</strong><br/>
+              Stringency: ${countryData ? countryData.value.toFixed(1) : 'No data'}
+            `);
+        })
+        .on('mousemove', (event: any) => {
+          tooltip
+            .style('top', `${event.pageY - 10}px`)
+            .style('left', `${event.pageX + 10}px`);
+        })
+        .on('mouseout', function() {
+          d3.select(this)
+            .attr('stroke', '#808080')
+            .attr('stroke-width', 0.5);
+            
+          tooltip.style('visibility', 'hidden');
+        })
+        .on('click', (event: any, d: any) => {
+          onCountryClick(d.properties.name);
+        });
+
+      // Add legend
+      const legendWidth = 200;
+      const legendHeight = 15;
+      const legendGroup = svg.append('g')
+        .attr('transform', `translate(${width - legendWidth - 20}, ${height - 40})`);
+
+      // Create gradient for legend
+      const defs = svg.append('defs');
+      const gradient = defs.append('linearGradient')
+        .attr('id', 'stringency-gradient')
+        .attr('x1', '0%')
+        .attr('x2', '100%')
+        .attr('y1', '0%')
+        .attr('y2', '0%');
+
+      gradient.append('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', colorScale(0));
+
+      gradient.append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', colorScale(100));
+
+      // Add legend rectangle
+      legendGroup.append('rect')
+        .attr('width', legendWidth)
+        .attr('height', legendHeight)
+        .attr('fill', 'url(#stringency-gradient)');
+
+      // Add legend labels
+      legendGroup.append('text')
+        .attr('x', 0)
+        .attr('y', legendHeight + 15)
+        .attr('font-size', '12px')
+        .text('Low');
+
+      legendGroup.append('text')
+        .attr('x', legendWidth)
+        .attr('y', legendHeight + 15)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '12px')
+        .text('High');
+
+      // Add title with current date
+      svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', 30)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '18px')
+        .attr('font-weight', 'bold')
+        .text(`COVID-19 Stringency Index: ${formatDate(currentDate)}`);
+
+      // Add timeline
+      if (availableDates.length > 1) {
+        const timelineWidth = width * 0.7;
+        const timelineHeight = 30;
+        const timelineX = (width - timelineWidth) / 2;
+        const timelineY = height - 60;
         
-        if (d.properties.iso_a3 === selectedCountry) {
-          return "#1d4ed8"; // Selected country in darker blue
-        } else if (stringencyValue !== undefined) {
-          return colorScale(stringencyValue); // Use stringency value for color
-        } else {
-          return "#f0f0f0"; // Light gray for countries without data
-        }
-      })
-      .attr("stroke", "#ddd")
-      .attr("stroke-width", 0.5)
-      .style("cursor", "pointer") // Add pointer cursor to indicate clickable
-      .on("mouseover", function(event, d: any) {
-        d3.select(this)
-          .attr("stroke", "#333")
-          .attr("stroke-width", 1.5);
-        
-        // Get country code for data lookup
-        const countryCode = (d.properties.iso_a3 || d.properties.adm0_a3 || "").toUpperCase();
-        const stringencyValue = stringencyMap.get(countryCode);
-        
-        const tooltip = d3.select(tooltipRef.current!);
-        const countryName = d.properties.name || "Unknown";
-        const valueText = stringencyValue !== undefined 
-          ? `<br/>Stringency: ${stringencyValue.toFixed(1)}` 
-          : "<br/>No data available";
+        // Add timeline background
+        svg.append('rect')
+          .attr('x', timelineX)
+          .attr('y', timelineY)
+          .attr('width', timelineWidth)
+          .attr('height', timelineHeight)
+          .attr('rx', 5)
+          .attr('ry', 5)
+          .attr('fill', '#f0f0f0')
+          .attr('stroke', '#ccc')
+          .attr('stroke-width', 1);
           
-        tooltip
-          .html(`${countryName}${valueText}`)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 28}px`)
-          .classed("hidden", false);
-      })
-      .on("mousemove", function(event) {
-        const tooltip = d3.select(tooltipRef.current!);
-        tooltip
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 28}px`);
-      })
-      .on("mouseout", function() {
-        d3.select(this)
-          .attr("stroke", "#ddd")
-          .attr("stroke-width", 0.5);
+        // Add timeline markers
+        const numberOfTicks = Math.min(12, availableDates.length);
+        const tickInterval = Math.floor(availableDates.length / numberOfTicks);
         
-        d3.select(tooltipRef.current!)
-          .classed("hidden", true);
-      })
-      .on("click", function(event, d: any) {
-        // Log the full properties object to see what's available
-        console.log("Full country properties:", d.properties);
-        
-        // Try multiple potential property names for country name
-        const countryName = d.properties.name || d.properties.name_long || 
-                            d.properties.admin || d.properties.ADMIN || "Unknown";
-        
-        // Try multiple potential property names for country code (for highlighting)
-        const countryCode = d.properties.iso_a3 || d.properties.adm0_a3 || 
-                            d.properties.iso_n3 || d.properties.id || d.id || "UNK";
-        
-        // Log click for debugging
-        console.log(`Clicked on country:`, {
-          name: countryName,
-          code: countryCode,
-          rawData: d
-        });
-        
-        // Update internal state (still keep track of code for highlighting)
-        setSelectedCountry(countryCode);
-        
-        // Call the callback function with just the country name to match Dashboard expectations
-        if (onCountryClick) {
-          console.log(`Calling onCountryClick with: ${countryName}`);
-          onCountryClick(countryName);
+        for (let i = 0; i < availableDates.length; i += tickInterval) {
+          const x = timelineX + (i / (availableDates.length - 1)) * timelineWidth;
+          
+          svg.append('line')
+            .attr('x1', x)
+            .attr('x2', x)
+            .attr('y1', timelineY + 5)
+            .attr('y2', timelineY + timelineHeight - 5)
+            .attr('stroke', '#999')
+            .attr('stroke-width', 1);
+            
+          if (i % (tickInterval * 2) === 0 || i === 0 || i === availableDates.length - 1) {
+            const date = new Date(availableDates[i]);
+            const year = date.getFullYear();
+            const month = date.toLocaleString('default', { month: 'short' });
+            
+            svg.append('text')
+              .attr('x', x)
+              .attr('y', timelineY + timelineHeight + 15)
+              .attr('text-anchor', 'middle')
+              .attr('font-size', '10px')
+              .text(`${month} ${year}`);
+          }
         }
-      });
-
-    // Add legend
-    drawLegend(svg, colorScale, width, height);
-    
-    // Add date title if using time series data
-    if (actualDates.length > 0) {
-      svg.append("text")
-        .attr("class", "date-title")
-        .attr("x", width / 2)
-        .attr("y", 30)
-        .attr("text-anchor", "middle")
-        .style("font-size", "24px")
-        .style("font-weight", "bold")
-        .text(formatDisplayDate(currentDate));
-    }
-  };
-
-  const drawLegend = (svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, 
-                      colorScale: d3.ScaleSequential<string, never>, 
-                      width: number, 
-                      height: number) => {
-    // Legend configuration
-    const legendWidth = 20;
-    const legendHeight = 200;
-    const legendX = width - legendWidth - 20; // Position on right side with margin
-    const legendY = height / 2 - legendHeight / 2; // Vertically centered
-    
-    // Create legend group
-    const legend = svg.append("g")
-      .attr("class", "legend")
-      .attr("transform", `translate(${legendX}, ${legendY})`);
-    
-    // Create gradient for legend
-    const gradient = legend.append("defs")
-      .append("linearGradient")
-      .attr("id", "legend-gradient")
-      .attr("x1", "0%")
-      .attr("y1", "100%")
-      .attr("x2", "0%")
-      .attr("y2", "0%");
-    
-    // Add gradient stops
-    const numStops = 10;
-    for (let i = 0; i <= numStops; i++) {
-      const offset = i / numStops;
-      const value = maxStringency * offset;
-      gradient.append("stop")
-        .attr("offset", `${offset * 100}%`)
-        .attr("stop-color", colorScale(value));
-    }
-    
-    // Add gradient rectangle
-    legend.append("rect")
-      .attr("width", legendWidth)
-      .attr("height", legendHeight)
-      .style("fill", "url(#legend-gradient)")
-      .style("stroke", "#ddd")
-      .style("stroke-width", "1px");
-    
-    // Add legend title
-    legend.append("text")
-      .attr("x", legendWidth / 2)
-      .attr("y", -10)
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .text("Stringency Index");
-    
-    // Add legend ticks and labels
-    const ticks = [0, 25, 50, 75, 100];
-    ticks.forEach(tick => {
-      const yPos = legendHeight * (1 - tick / maxStringency);
-      
-      // Add tick line
-      legend.append("line")
-        .attr("x1", -5)
-        .attr("y1", yPos)
-        .attr("x2", legendWidth)
-        .attr("y2", yPos)
-        .style("stroke", "#333")
-        .style("stroke-width", 1);
-      
-      // Add tick label
-      legend.append("text")
-        .attr("x", -8)
-        .attr("y", yPos)
-        .attr("text-anchor", "end")
-        .attr("dominant-baseline", "middle")
-        .style("font-size", "10px")
-        .text(tick.toString());
-    });
-  };
-
-  // Function to get custom date tick labels
-  const getTickLabels = () => {
-    if (actualDates.length <= 1) return [];
-    
-    // For fewer dates, show more labels
-    if (actualDates.length <= 12) {
-      return actualDates.map((date, index) => ({
-        index,
-        label: new Date(date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-      }));
-    }
-    
-    // For many dates, show fewer labels
-    const tickCount = 5;
-    const step = Math.floor(actualDates.length / (tickCount - 1));
-    const ticks = [];
-    
-    for (let i = 0; i < actualDates.length; i += step) {
-      if (ticks.length < tickCount - 1) {
-        ticks.push({
-          index: i,
-          label: new Date(actualDates[i]).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-        });
+        
+        // Add timeline progress indicator
+        const progressX = timelineX + (currentDateIndex / (availableDates.length - 1)) * timelineWidth;
+        
+        svg.append('circle')
+          .attr('cx', progressX)
+          .attr('cy', timelineY + timelineHeight / 2)
+          .attr('r', 8)
+          .attr('fill', '#3B82F6')
+          .attr('stroke', '#fff')
+          .attr('stroke-width', 2);
       }
+
+    } catch (error) {
+      console.error('Error rendering map:', error);
     }
-    
-    // Always include the last date
-    if (ticks.length > 0 && ticks[ticks.length - 1].index !== actualDates.length - 1) {
-      ticks.push({
-        index: actualDates.length - 1,
-        label: new Date(actualDates[actualDates.length - 1]).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-      });
-    }
-    
-    return ticks;
+  }, [worldGeoData, timeSeriesData, availableDates, currentDateIndex, maxStringency, onCountryClick]);
+
+  // Handle slider change
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentDateIndex(parseInt(e.target.value, 10));
+    // Stop animation when manually changing
+    setIsPlaying(false);
   };
 
-  // Get tick labels for the slider
-  const tickLabels = getTickLabels();
+  // Toggle play/pause
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  // Handle speed change
+  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAnimationSpeed(parseInt(e.target.value, 10));
+  };
+
+  if (loading) {
+    return (
+      <div className={`flex items-center justify-center ${className || "h-full w-full"}`}>
+        <div className="text-center">
+          <div className="mb-2 h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-blue-600 mx-auto"></div>
+          <p>Loading map data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`relative ${className || ""}`}>
-      <svg 
-        ref={svgRef} 
-        className="w-full h-full"
-        style={{ minHeight: "300px" }}
-      />
+    <div className="relative flex flex-col w-full h-full">
+      {/* Map container */}
+      <div className="relative flex-grow">
+        <svg 
+          ref={svgRef} 
+          className={className || "w-full h-full"}
+          width="100%" 
+          height="100%"
+        />
+        <div ref={tooltipRef} className="absolute" style={{ visibility: 'hidden' }} />
+      </div>
       
-      {/* Animation controls - only show if we have time series data */}
-      {actualDates.length > 1 && (
-        <div className="flex flex-col items-center mt-4 w-full">
-          <div className="text-xl font-bold mb-2">
-            Stringency Index for {formatDisplayDate(currentDate)}
-          </div>
-          
-          <div className="flex items-center space-x-4 mb-2">
-            <button
-              onClick={stepBackward}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded"
-              aria-label="Previous date"
-            >
-              &#9664;
-            </button>
-            
-            <button
-              onClick={togglePlayPause}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-4 rounded flex items-center justify-center w-20"
-            >
-              {isPlaying ? "Pause" : "Play"}
-            </button>
-            
-            <button
-              onClick={stepForward}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded"
-              aria-label="Next date"
-            >
-              &#9654;
-            </button>
-          </div>
-          
-          {/* Date slider with custom tick marks */}
-          <div className="flex flex-col w-full max-w-lg mb-4">
-            <input
-              type="range"
-              min={0}
-              max={actualDates.length - 1}
-              value={currentDateIndex}
-              step={1}
-              onChange={handleDateSliderChange}
-              className="w-full mb-1"
-            />
-            
-            <div className="relative w-full h-6">
-              {tickLabels.map(tick => (
-                <div 
-                  key={tick.index}
-                  className="absolute transform -translate-x-1/2 text-xs"
-                  style={{
-                    left: `${(tick.index / (actualDates.length - 1)) * 100}%`,
-                  }}
-                >
-                  {tick.label}
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <div className="mt-2 flex items-center">
-            <label className="text-sm mr-2">Animation Speed:</label>
-            <input
-              type="range"
-              min={100}
-              max={3000}
-              step={100}
-              value={animationSpeed}
-              onChange={(e) => setAnimationSpeed(Number(e.target.value))}
-              className="w-32"
-            />
-            <span className="ml-2 text-xs">
-              {animationSpeed < 500 ? "Fast" : animationSpeed > 1500 ? "Slow" : "Medium"}
-            </span>
-          </div>
+      {/* Controls */}
+      <div className="mt-4 px-4 py-3 flex items-center space-x-4 bg-gray-50 rounded-lg">
+        {/* Play/pause button */}
+        <button 
+          onClick={togglePlayPause}
+          className={`flex items-center justify-center w-10 h-10 rounded-full 
+                    ${isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} 
+                    text-white transition-colors`}
+          aria-label={isPlaying ? "Pause animation" : "Play animation"}
+        >
+          {isPlaying ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+            </svg>
+          )}
+        </button>
+        
+        {/* Current date display */}
+        <div className="text-sm font-medium min-w-28">
+          {availableDates.length > 0 ? formatDate(availableDates[currentDateIndex]) : "No data"}
         </div>
-      )}
+        
+        {/* Timeline slider */}
+        <div className="flex-grow">
+          <input 
+            type="range" 
+            min="0" 
+            max={availableDates.length - 1}
+            value={currentDateIndex}
+            onChange={handleSliderChange}
+            className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200"
+          />
+        </div>
+        
+        {/* Animation speed control */}
+        <div className="flex items-center space-x-2">
+          <label htmlFor="speed" className="text-sm text-gray-700">Speed:</label>
+          <select 
+            id="speed"
+            value={animationSpeed}
+            onChange={handleSpeedChange}
+            className="text-sm border border-gray-300 rounded py-1 px-2"
+          >
+            <option value="2000">Slow</option>
+            <option value="1000">Normal</option>
+            <option value="500">Fast</option>
+            <option value="250">Very Fast</option>
+          </select>
+        </div>
+      </div>
     </div>
   );
-};
+}
