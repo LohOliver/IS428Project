@@ -31,9 +31,11 @@ export default function DashboardPage() {
   const [selectedCountryName, setSelectedCountryName] =
     React.useState<string>("United States");
   const [timeRange, setTimeRange] = React.useState("2020-2023");
-  
+
   // Sample time series data - in a real application, you would fetch this from an API
-  const [timeSeriesData, setTimeSeriesData] = React.useState<TimeSeriesData>({});
+  const [timeSeriesData, setTimeSeriesData] = React.useState<TimeSeriesData>(
+    {}
+  );
   const [availableDates, setAvailableDates] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -41,43 +43,83 @@ export default function DashboardPage() {
   React.useEffect(() => {
     // Simulate data fetching with a timeout
     setIsLoading(true);
-    
+
     // Generate sample data based on the selected time range
     const generateData = () => {
       const data: TimeSeriesData = {};
       const dates: string[] = [];
-      
+
       // Parse the time range
-      const [startYear, endYear] = timeRange.includes("-") 
-        ? timeRange.split("-").map(Number) 
+      const [startYear, endYear] = timeRange.includes("-")
+        ? timeRange.split("-").map(Number)
         : [Number(timeRange), Number(timeRange)];
-      
+
       // Generate monthly data for the selected time range
       for (let year = startYear; year <= endYear; year++) {
         for (let month = 1; month <= 12; month++) {
           // Skip future months for the current year
           if (year === 2023 && month > 12) continue;
-          
-          const dateKey = `${year}-${month.toString().padStart(2, '0')}-01`;
+
+          const dateKey = `${year}-${month.toString().padStart(2, "0")}-01`;
           dates.push(dateKey);
-          
+
           // Generate data for various countries
           data[dateKey] = [
-            { country: "United States", code: "USA", value: Math.floor(20 + Math.random() * 60) },
-            { country: "United Kingdom", code: "GBR", value: Math.floor(20 + Math.random() * 60) },
-            { country: "China", code: "CHN", value: Math.floor(20 + Math.random() * 60) },
-            { country: "India", code: "IND", value: Math.floor(20 + Math.random() * 60) },
-            { country: "Brazil", code: "BRA", value: Math.floor(20 + Math.random() * 60) },
-            { country: "Russia", code: "RUS", value: Math.floor(20 + Math.random() * 60) },
-            { country: "Germany", code: "DEU", value: Math.floor(20 + Math.random() * 60) },
-            { country: "France", code: "FRA", value: Math.floor(20 + Math.random() * 60) },
-            { country: "Italy", code: "ITA", value: Math.floor(20 + Math.random() * 60) },
-            { country: "Canada", code: "CAN", value: Math.floor(20 + Math.random() * 60) },
+            {
+              country: "United States",
+              code: "USA",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "United Kingdom",
+              code: "GBR",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "China",
+              code: "CHN",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "India",
+              code: "IND",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "Brazil",
+              code: "BRA",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "Russia",
+              code: "RUS",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "Germany",
+              code: "DEU",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "France",
+              code: "FRA",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "Italy",
+              code: "ITA",
+              value: Math.floor(20 + Math.random() * 60),
+            },
+            {
+              country: "Canada",
+              code: "CAN",
+              value: Math.floor(20 + Math.random() * 60),
+            },
             // Add more countries as needed
           ];
         }
       }
-      
+
       return { data, dates: dates.sort() };
     };
 
@@ -93,22 +135,22 @@ export default function DashboardPage() {
 
   const handleCountryClick = (countryName: string) => {
     setSelectedCountryName(countryName);
-    
+
     // Set the country code based on the country name
     // In a real app, you would have a more robust mapping
-    const countryMap: {[key: string]: string} = {
+    const countryMap: { [key: string]: string } = {
       "United States": "USA",
       "United Kingdom": "GBR",
-      "China": "CHN",
-      "India": "IND",
-      "Brazil": "BRA",
-      "Russia": "RUS",
-      "Germany": "DEU",
-      "France": "FRA",
-      "Italy": "ITA",
-      "Canada": "CAN",
+      China: "CHN",
+      India: "IND",
+      Brazil: "BRA",
+      Russia: "RUS",
+      Germany: "DEU",
+      France: "FRA",
+      Italy: "ITA",
+      Canada: "CAN",
     };
-    
+
     const countryCode = countryMap[countryName] || selectedCountry;
     setSelectedCountry(countryCode);
     console.log(`Selected country: ${countryName} (${countryCode})`);
@@ -160,9 +202,7 @@ export default function DashboardPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-7">
-            <CardHeader>
-        
-            </CardHeader>
+            <CardHeader></CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="flex h-96 items-center justify-center">
@@ -197,7 +237,7 @@ export default function DashboardPage() {
               />
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>
@@ -207,7 +247,7 @@ export default function DashboardPage() {
             <CardContent>
               <PolicyBreakdown
                 className="h-[400px]"
-                country={selectedCountry}
+                country={selectedCountryName}
                 countryName={selectedCountryName}
               />
             </CardContent>
