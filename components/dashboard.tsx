@@ -1,3 +1,5 @@
+// Update to the Dashboard component to include tabs for the map
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,12 +12,12 @@ import {
 } from "@/components/ui/card";
 import StatisticsPanel from "./statistics-panel";
 import RegionalComparison from "./regional-comparison";
-import CountryTable from "./country-table";
+import CovidWorldMap, { CovidDataType } from "../components/overview-map";
 import { fetchCovidData } from "@/lib/api";
 import type { CovidData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation"; // Changed from next/router to next/navigation
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
@@ -24,6 +26,7 @@ export default function Dashboard() {
   const [covidData, setCovidData] = useState<CovidData | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [mapDataType, setMapDataType] = useState<CovidDataType>('cases');
   const router = useRouter();
 
   useEffect(() => {
@@ -55,6 +58,10 @@ export default function Dashboard() {
   const handleRegionSelect = (region: string) => {
     setSelectedRegion(region);
     setSelectedCountry(null);
+  };
+
+  const handleMapDataTypeChange = (dataType: string) => {
+    setMapDataType(dataType as CovidDataType);
   };
 
   if (loading) {
@@ -94,14 +101,7 @@ export default function Dashboard() {
 
       <div className="grid gap-6">
         <div>
-          <StatisticsPanel
-            globalStats={covidData?.global}
-            countryStats={
-              selectedCountry
-                ? covidData?.countries.find((c) => c.code === selectedCountry)
-                : null
-            }
-          />
+          <StatisticsPanel />
         </div>
         {/* Navigation Button */}
         <div className="flex justify-center my-6">
@@ -114,6 +114,28 @@ export default function Dashboard() {
         </div>
         <div>
           <Card>
+            <CardHeader>
+              <CardTitle>Global COVID-19 Map</CardTitle>
+              <CardDescription>
+                Worldwide visualization of COVID-19 statistics
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="cases" className="w-full mb-6" onValueChange={handleMapDataTypeChange}>
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="cases">Cases</TabsTrigger>
+                  <TabsTrigger value="deaths">Deaths</TabsTrigger>
+                  <TabsTrigger value="recovered">Recovered</TabsTrigger>
+                  <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="h-[550px]">
+                <CovidWorldMap dataType={mapDataType} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-6">
             <CardHeader>
               <CardTitle>Regional Comparisons</CardTitle>
               <CardDescription>
@@ -168,34 +190,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Country-Level Data</CardTitle>
-              <CardDescription>
-                {selectedRegion
-                  ? `Showing data for ${selectedRegion}`
-                  : "Click on a country to view detailed statistics"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {filteredCountries && (
-                <CountryTable
-                  countries={filteredCountries}
-                  onCountrySelect={handleCountrySelect}
-                  selectedCountry={selectedCountry}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
-
-      <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
-        <p>Data source: Johns Hopkins University CSSE</p>
-        <p className="mt-1">Last updated: {covidData?.lastUpdated}</p>
-      </footer>
     </div>
   );
 }

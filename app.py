@@ -162,6 +162,160 @@ def get_aggregation_data():
     total_cases = db.session.query(func.sum(CovidData.total_cases)).scalar()
     return jsonify({"total_vaccinations": total_vaccinations, "total_deaths": total_deaths, "total_estimated_recovered": total_estimated_recovered, "total_cases": total_cases})
 
+@app.route('/total_cases_by_country', methods=['GET'])
+def get_total_cases_by_country():
+    """
+    Get the total COVID-19 cases for each country.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": total_cases_value,
+            ...
+        }
+    """
+    # Get the latest entry for each country to capture their total cases
+    latest_date_subquery = db.session.query(
+        CovidData.location,
+        func.max(CovidData.date).label("latest_date")
+    ).group_by(CovidData.location).subquery()
+    
+    # Query to get the total cases from the latest date for each country
+    total_cases_query = db.session.query(
+        CovidData.location,
+        CovidData.total_cases
+    ).join(
+        latest_date_subquery,
+        (CovidData.location == latest_date_subquery.c.location) &
+        (CovidData.date == latest_date_subquery.c.latest_date)
+    ).filter(
+        CovidData.total_cases.isnot(None)  # Filter out NULL values
+    ).all()
+    
+    # Format the result as a dictionary
+    result = {location: int(total_cases) if total_cases else 0 for location, total_cases in total_cases_query}
+    
+    return jsonify(result)
+
+# Add these three new endpoint functions to your Flask application
+
+@app.route('/total_deaths_by_country', methods=['GET'])
+def get_total_deaths_by_country():
+    """
+    Get the total COVID-19 deaths for each country.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": total_deaths_value,
+            ...
+        }
+    """
+    # Get the latest entry for each country to capture their total deaths
+    latest_date_subquery = db.session.query(
+        CovidData.location,
+        func.max(CovidData.date).label("latest_date")
+    ).group_by(CovidData.location).subquery()
+    
+    # Query to get the total deaths from the latest date for each country
+    total_deaths_query = db.session.query(
+        CovidData.location,
+        CovidData.total_deaths
+    ).join(
+        latest_date_subquery,
+        (CovidData.location == latest_date_subquery.c.location) &
+        (CovidData.date == latest_date_subquery.c.latest_date)
+    ).filter(
+        CovidData.total_deaths.isnot(None)  # Filter out NULL values
+    ).all()
+    
+    # Format the result as a dictionary
+    result = {location: int(total_deaths) if total_deaths else 0 for location, total_deaths in total_deaths_query}
+    
+    return jsonify(result)
+
+@app.route('/total_recovered_by_country', methods=['GET'])
+def get_total_recovered_by_country():
+    """
+    Get the estimated total COVID-19 recovered cases for each country.
+    Since there is no direct field for recovered cases, we calculate it as
+    total cases minus total deaths.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": total_recovered_value,
+            ...
+        }
+    """
+    # Get the latest entry for each country
+    latest_date_subquery = db.session.query(
+        CovidData.location,
+        func.max(CovidData.date).label("latest_date")
+    ).group_by(CovidData.location).subquery()
+    
+    # Query to get the data needed to calculate recovered cases
+    recovered_query = db.session.query(
+        CovidData.location,
+        CovidData.total_cases,
+        CovidData.total_deaths
+    ).join(
+        latest_date_subquery,
+        (CovidData.location == latest_date_subquery.c.location) &
+        (CovidData.date == latest_date_subquery.c.latest_date)
+    ).filter(
+        CovidData.total_cases.isnot(None),
+        CovidData.total_deaths.isnot(None)
+    ).all()
+    
+    # Calculate recovered cases as total cases minus total deaths
+    # Note: This is an estimate, as actual recovered data may not be available
+    result = {}
+    for location, total_cases, total_deaths in recovered_query:
+        if total_cases is not None and total_deaths is not None:
+            # Ensure we don't have negative recovered values
+            recovered = max(0, int(total_cases) - int(total_deaths))
+            result[location] = recovered
+        else:
+            result[location] = 0
+    
+    return jsonify(result)
+
+@app.route('/total_vaccinated_by_country', methods=['GET'])
+def get_total_vaccinated_by_country():
+    """
+    Get the total fully vaccinated people for each country.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": total_vaccinated_value,
+            ...
+        }
+    """
+    # Get the latest entry for each country to capture their vaccination data
+    latest_date_subquery = db.session.query(
+        CovidData.location,
+        func.max(CovidData.date).label("latest_date")
+    ).group_by(CovidData.location).subquery()
+    
+    # Query to get the people fully vaccinated from the latest date for each country
+    total_vaccinated_query = db.session.query(
+        CovidData.location,
+        CovidData.people_fully_vaccinated
+    ).join(
+        latest_date_subquery,
+        (CovidData.location == latest_date_subquery.c.location) &
+        (CovidData.date == latest_date_subquery.c.latest_date)
+    ).filter(
+        CovidData.people_fully_vaccinated.isnot(None)  # Filter out NULL values
+    ).all()
+    
+    # Format the result as a dictionary
+    result = {location: int(vaccinated) if vaccinated else 0 for location, vaccinated in total_vaccinated_query}
+    
+    return jsonify(result)
+
 @app.route('/d1_1', methods=['GET'])
 def get_vaccination_rate_latest():
     latest_subquery = (

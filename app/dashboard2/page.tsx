@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WorldMap } from "../../components/world-map";
+import { WorldMap } from "../../components/stringency-map";
 import { TimeSeriesChart } from "../../components/time-series-chart";
 import { PolicyBreakdown } from "../../components/policy-breakdown";
 
