@@ -370,5 +370,32 @@ def get_avg_stringency_by_month_for_country(country):
         
     return jsonify(result)
 
+@app.route('/avg_cases_per_month/<country>', methods=['GET'])
+def get_avg_cases_per_month(country):
+    # Query the CovidData table for the selected country
+    avg_cases_query = db.session.query(
+        extract('year', CovidData.date).label('year'),
+        extract('month', CovidData.date).label('month'),
+        func.sum(CovidData.total_cases).label('total_cases'),
+        func.count().label('days_count')
+    ).filter(
+        CovidData.location == country
+    ).group_by(
+        extract('year', CovidData.date),
+        extract('month', CovidData.date)
+    ).all()
+
+    # Process the data to calculate the average cases per month
+    avg_cases_per_month = {}
+
+    for year, month, total_cases, days_count in avg_cases_query:
+        avg_cases = total_cases / days_count if days_count > 0 else 0
+        if year not in avg_cases_per_month:
+            avg_cases_per_month[year] = {}
+        avg_cases_per_month[year][month] = avg_cases
+
+    return jsonify(avg_cases_per_month)
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=True)
