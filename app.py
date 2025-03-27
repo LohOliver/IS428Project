@@ -154,12 +154,30 @@ def get_covid_data_by_id(id):
         return jsonify({"error": "Data not found"}), 404  # Return 404 if not found
     return jsonify(data.to_dict())  # Return the data as a dictionary
 
-@app.route('/d1_0', methods=['GET'])
+@app.route('/totals', methods=['GET'])
 def get_aggregation_data():
-    total_vaccinations = db.session.query(func.sum(CovidData.total_vaccinations)).scalar()
-    total_deaths = db.session.query(func.sum(CovidData.total_deaths)).scalar()
-    total_estimated_recovered = db.session.query(func.sum(CovidData.total_cases_per_million)).scalar() - db.session.query(func.sum(CovidData.total_deaths_per_million)).scalar()
-    total_cases = db.session.query(func.sum(CovidData.total_cases)).scalar()
+    latest_record = (
+        db.session.query(CovidData.total_vaccinations)
+        .filter(CovidData.location == 'World', CovidData.total_vaccinations != None, CovidData.total_vaccinations != "")
+        .order_by(CovidData.date.desc())
+        .first()
+    )
+    total_vaccinations = latest_record.total_vaccinations
+    latest_record = (
+        db.session.query(CovidData.total_deaths)
+        .filter(CovidData.location == 'World', CovidData.total_deaths != None, CovidData.total_deaths != "")
+        .order_by(CovidData.date.desc())
+        .first()
+    )
+    total_deaths = latest_record.total_deaths
+    latest_record = (
+        db.session.query(CovidData.total_cases)
+        .filter(CovidData.location == 'World', CovidData.total_cases != None, CovidData.total_cases != "")
+        .order_by(CovidData.date.desc())
+        .first()
+    )
+    total_cases = latest_record.total_cases
+    total_estimated_recovered = total_cases - total_deaths
     return jsonify({"total_vaccinations": total_vaccinations, "total_deaths": total_deaths, "total_estimated_recovered": total_estimated_recovered, "total_cases": total_cases})
 
 @app.route('/total_cases_by_country', methods=['GET'])
@@ -353,7 +371,7 @@ def get_top10_avg_cases_per_million():
 
     return jsonify(result)
 
-@app.route('/d1_3', methods=['GET'])
+@app.route('/recovered_globally', methods=['GET'])
 def get_estimated_recovered_by_region():
     regions = [
         "European Union (27)", "Europe", "Oceania", "North America",
