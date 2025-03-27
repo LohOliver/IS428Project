@@ -334,6 +334,285 @@ def get_total_vaccinated_by_country():
     
     return jsonify(result)
 
+
+@app.route('/top10_countries_by_cases', methods=['GET'])
+def get_top10_countries_by_cases():
+    """
+    Get the top 10 countries with the highest maximum total COVID-19 cases.
+    Uses maximum case count for each country rather than latest date.
+    Excludes regions, continents, and other non-country entities.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": max_total_cases_value,
+            ...
+        }
+    """
+    # List of known regions/continents/world aggregates to exclude
+    excluded_locations = [
+        # Continents and global
+        'World', 'Europe', 'North America', 'South America', 'Asia', 
+        'Africa', 'Oceania', 
+        
+        # Regional groups
+        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
+        
+        # Income-based categories
+        'High income', 'High-income countries',
+        'Upper middle income', 'Upper-middle-income countries',
+        'Lower middle income', 'Lower-middle-income countries',
+        'Low-income countries',
+        'Low income',
+        
+        # Other
+        'International'
+    ]
+    
+    # Query to get the maximum total cases for each country
+    max_cases_query = db.session.query(
+        CovidData.location,
+        func.max(CovidData.total_cases).label("max_total_cases")
+    ).filter(
+        CovidData.total_cases.isnot(None),  # Filter out NULL values
+        ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
+    ).group_by(
+        CovidData.location
+    ).order_by(
+        func.max(CovidData.total_cases).desc()  # Order by max total cases in descending order
+    ).limit(10)  # Limit to top 10
+    
+    # Format the result as a dictionary
+    result = {location: int(max_cases) if max_cases else 0 
+              for location, max_cases in max_cases_query}
+    
+    return jsonify(result)
+
+
+@app.route('/top10_countries_by_deaths', methods=['GET'])
+def get_top10_countries_by_deaths():
+    """
+    Get the top 10 countries with the highest maximum total COVID-19 deaths.
+    Uses maximum death count for each country rather than latest date.
+    Excludes regions, continents, and other non-country entities.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": max_total_deaths_value,
+            ...
+        }
+    """
+    # List of known regions/continents/world aggregates to exclude
+    excluded_locations = [
+        # Continents and global
+        'World', 'Europe', 'North America', 'South America', 'Asia', 
+        'Africa', 'Oceania', 
+        
+        # Regional groups
+        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
+        
+        # Income-based categories
+        'High income', 'High-income countries',
+        'Upper middle income', 'Upper-middle-income countries',
+        'Lower middle income', 'Lower-middle-income countries',
+        'Low-income countries',
+        'Low income',
+        
+        # Other
+        'International'
+    ]
+    
+    # Query to get the maximum total deaths for each country
+    max_deaths_query = db.session.query(
+        CovidData.location,
+        func.max(CovidData.total_deaths).label("max_total_deaths")
+    ).filter(
+        CovidData.total_deaths.isnot(None),  # Filter out NULL values
+        ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
+    ).group_by(
+        CovidData.location
+    ).order_by(
+        func.max(CovidData.total_deaths).desc()  # Order by max total deaths in descending order
+    ).limit(10)  # Limit to top 10
+    
+    # Format the result as a dictionary
+    result = {location: int(max_deaths) if max_deaths else 0 
+              for location, max_deaths in max_deaths_query}
+    
+    return jsonify(result)
+
+
+
+@app.route('/top10_countries_by_recovered', methods=['GET'])
+def get_top10_countries_by_recovered():
+    """
+    Get the top 10 countries with the highest maximum estimated recovered COVID-19 cases.
+    For each country, finds the maximum difference between total cases and total deaths.
+    Excludes regions, continents, and other non-country entities.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": max_recovered_value,
+            ...
+        }
+    """
+    # List of known regions/continents/world aggregates to exclude
+    excluded_locations = [
+        # Continents and global
+        'World', 'Europe', 'North America', 'South America', 'Asia', 
+        'Africa', 'Oceania', 
+        
+        # Regional groups
+        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
+        
+        # Income-based categories
+        'High income', 'High-income countries',
+        'Upper middle income', 'Upper-middle-income countries',
+        'Lower middle income', 'Lower-middle-income countries',
+        'Low-income countries',
+        'Low income',
+        
+        # Other
+        'International'
+    ]
+    
+    # Subquery to calculate recovered cases for each record
+    recovered_subquery = db.session.query(
+        CovidData.location,
+        (CovidData.total_cases - CovidData.total_deaths).label("recovered")
+    ).filter(
+        CovidData.total_cases.isnot(None),
+        CovidData.total_deaths.isnot(None),
+        CovidData.total_cases >= CovidData.total_deaths,  # Ensure no negative values
+        ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
+    ).subquery()
+    
+    # Query to get the maximum recovered value for each country
+    max_recovered_query = db.session.query(
+        recovered_subquery.c.location,
+        func.max(recovered_subquery.c.recovered).label("max_recovered")
+    ).group_by(
+        recovered_subquery.c.location
+    ).order_by(
+        func.max(recovered_subquery.c.recovered).desc()  # Order by max recovered in descending order
+    ).limit(10)  # Limit to top 10
+    
+    # Format the result as a dictionary
+    result = {location: int(max_recovered) if max_recovered else 0 
+              for location, max_recovered in max_recovered_query}
+    
+    return jsonify(result)
+
+@app.route('/top10_countries_by_vaccination', methods=['GET'])
+def get_top10_countries_by_vaccination():
+    """
+    Get the top 10 countries with the highest COVID-19 vaccination counts.
+    Uses maximum vaccination count for each country rather than latest date.
+    Excludes regions, continents, and other non-country entities.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": max_vaccination_value,
+            ...
+        }
+    """
+    # List of known regions/continents/world aggregates to exclude
+    excluded_locations = [
+        # Continents and global
+        'World', 'Europe', 'North America', 'South America', 'Asia', 
+        'Africa', 'Oceania', 
+        
+        # Regional groups
+        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
+        
+        # Income-based categories
+        'High income', 'High-income countries',
+        'Upper middle income', 'Upper-middle-income countries',
+        'Lower middle income', 'Lower-middle-income countries',
+        'Low-income countries',
+        'Low income',
+        
+        # Other
+        'International'
+    ]
+    
+    # Query to get the maximum vaccination count for each country
+    max_vaccination_query = db.session.query(
+        CovidData.location,
+        func.max(CovidData.people_fully_vaccinated).label("max_vaccinated")
+    ).filter(
+        CovidData.people_fully_vaccinated.isnot(None),
+        ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
+    ).group_by(
+        CovidData.location
+    ).order_by(
+        func.max(CovidData.people_fully_vaccinated).desc()  # Order by max vaccinated count
+    ).limit(10)  # Limit to top 10
+    
+    # Format the result as a dictionary
+    result = {location: int(max_vaccinated) if max_vaccinated else 0 
+              for location, max_vaccinated in max_vaccination_query}
+    
+    return jsonify(result)
+
+@app.route('/continents_new_cases_per_month', methods=['GET'])
+def get_continents_new_cases_per_month():
+    """
+    Get the total new cases per month for all continents.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "continent_name": {
+                "YYYY-MM": new_cases_for_month,
+                ...
+            },
+            ...
+        }
+    """
+    # List of continents to include
+    continents = [
+        'Africa', 
+        'Asia', 
+        'Europe', 
+        'North America', 
+        'Oceania', 
+        'South America'
+    ]
+    
+    # Get new cases per month for each continent by summing the new_cases field
+    new_cases_per_month_query = db.session.query(
+        CovidData.continent,
+        func.extract('year', CovidData.date).label("year"),
+        func.extract('month', CovidData.date).label("month"),
+        func.sum(CovidData.new_cases).label("monthly_new_cases")
+    ).filter(
+        CovidData.continent.in_(continents),
+        CovidData.new_cases.isnot(None)
+    ).group_by(
+        CovidData.continent,
+        func.extract('year', CovidData.date),
+        func.extract('month', CovidData.date)
+    ).all()
+    
+    # Format the result as a nested dictionary
+    result = {}
+    for continent, year, month, monthly_new_cases in new_cases_per_month_query:
+        if continent not in result:
+            result[continent] = {}
+            
+        # Format month to ensure it's always two digits
+        month_str = f"{int(month):02d}"
+        date_key = f"{int(year)}-{month_str}"
+        
+        # Store the monthly new cases count
+        result[continent][date_key] = int(monthly_new_cases) if monthly_new_cases else 0
+    
+    return jsonify(result)
+    
 @app.route('/d1_1', methods=['GET'])
 def get_vaccination_rate_latest():
     latest_subquery = (

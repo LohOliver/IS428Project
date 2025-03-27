@@ -1,8 +1,8 @@
 // First, let's update the CovidWorldMap component to accept a dataType prop
 
-import React, { useEffect, useRef, useState } from 'react';
-import * as d3 from 'd3';
-import { feature } from 'topojson-client';
+import React, { useEffect, useRef, useState } from "react";
+import * as d3 from "d3";
+import { feature } from "topojson-client";
 
 // Define the type for our country data
 interface CountryData {
@@ -10,13 +10,15 @@ interface CountryData {
 }
 
 // Define the possible data types
-export type CovidDataType = 'cases' | 'deaths' | 'recovered' | 'vaccinated';
+export type CovidDataType = "cases" | "deaths" | "recovered" | "vaccinated";
 
 interface CovidWorldMapProps {
   dataType?: CovidDataType;
 }
 
-const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => {
+const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
+  dataType = "cases",
+}) => {
   const [data, setData] = useState<CountryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +27,10 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
 
   // API endpoints for different data types
   const endpoints = {
-    cases: 'http://localhost:5002/total_cases_by_country',
-    deaths: 'http://localhost:5002/total_deaths_by_country',
-    recovered: 'http://localhost:5002/total_recovered_by_country',
-    vaccinated: 'http://localhost:5002/total_vaccinated_by_country'
+    cases: "http://localhost:5002/total_cases_by_country",
+    deaths: "http://localhost:5002/total_deaths_by_country",
+    recovered: "http://localhost:5002/total_recovered_by_country",
+    vaccinated: "http://localhost:5002/total_vaccinated_by_country",
   };
 
   useEffect(() => {
@@ -36,7 +38,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
     setLoading(true);
     setError(null);
     setData(null);
-    
+
     // Fetch data from the appropriate API
     const fetchData = async () => {
       try {
@@ -48,7 +50,11 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
         setData(jsonData);
         setLoading(false);
       } catch (error) {
-        setError(`Error fetching ${dataType} data: ${error instanceof Error ? error.message : String(error)}`);
+        setError(
+          `Error fetching ${dataType} data: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
         setLoading(false);
       }
     };
@@ -64,8 +70,8 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [data]);
 
   useEffect(() => {
@@ -78,27 +84,30 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
     if (!svgRef.current || !data) return;
 
     // Clear any existing SVG content
-    d3.select(svgRef.current).selectAll('*').remove();
+    d3.select(svgRef.current).selectAll("*").remove();
 
     // Set up dimensions based on container size
     const container = svgRef.current.parentElement;
     const width = container ? container.clientWidth : 960;
     const height = container ? container.clientHeight : 500;
-    
-    const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
-    
+
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height);
+
     // Create tooltip
     const tooltip = d3.select(tooltipRef.current);
 
     try {
       // Load world topology data
-      const worldData: any = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
-      
+      const worldData: any = await d3.json(
+        "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
+      );
+
       // Convert TopoJSON to GeoJSON
       const countries = feature(worldData, worldData.objects.countries);
-      
+
       // Get country names from topology data
       const countryNames: { [id: string]: string } = {};
       worldData.objects.countries.geometries.forEach((d: any) => {
@@ -107,11 +116,21 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
 
       // Create a mapping from country names in our data to country names in the GeoJSON
       const countryNameMap: { [key: string]: string } = {
-        'United States': 'United States of America',
-        'Russia': 'Russian Federation',
-        'South Korea': 'Korea, Republic of',
-        'Iran': 'Iran, Islamic Republic of',
-        'United Kingdom': 'United Kingdom of Great Britain and Northern Ireland',
+        "United States": "United States of America",
+        Russia: "Russian Federation",
+        "South Korea": "Korea, Republic of",
+        Iran: "Iran, Islamic Republic of",
+        "United Kingdom":
+          "United Kingdom of Great Britain and Northern Ireland",
+        "Democratic Republic of Congo": "Dem. Rep. Congo",
+        "South Sudan": "S. Sudan",
+        "Central African Republic":"Central African Rep.",
+        "Cote d'Ivoire":"Côte d'Ivoire",
+        "Bosnia and Herzegovina":"Bosnia and Herz.",
+        "North Macedonia":"Macedonia",
+        "Dominican Republic":"Dominican Rep.",
+
+        "Equatorial Guinea":"Eq. Guinea"
         // Add more mappings as needed
       };
 
@@ -120,15 +139,22 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
       Object.entries(countryNameMap).forEach(([ourName, geoName]) => {
         reverseMap[geoName] = ourName;
       });
-      
+
       // Filter out regions and non-country entries
       const filteredData: CountryData = {};
       Object.entries(data).forEach(([country, value]) => {
         if (
-          country !== 'World' && 
-          country !== 'location' && 
-          !['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Oceania'].includes(country) &&
-          !country.includes('income-countries') &&
+          country !== "World" &&
+          country !== "location" &&
+          ![
+            "Africa",
+            "Asia",
+            "Europe",
+            "North America",
+            "South America",
+            "Oceania",
+          ].includes(country) &&
+          !country.includes("income-countries") &&
           value !== 0
         ) {
           filteredData[country] = value;
@@ -136,67 +162,71 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
       });
 
       // Find the maximum value for the color scale
-      const maxValue = Math.max(...Object.values(filteredData).filter(v => v > 0));
-      
+      const maxValue = Math.max(
+        ...Object.values(filteredData).filter((v) => v > 0)
+      );
+
       // Create a color scale (log scale works better for this kind of data)
-      const colorScale = d3.scaleLog()
+      const colorScale = d3
+        .scaleLog()
         .domain([10, maxValue])
         .range(getColorRangeForDataType(dataType))
         .clamp(true);
 
       // Create a projection
-      const projection = d3.geoNaturalEarth1()
+      const projection = d3
+        .geoNaturalEarth1()
         .fitSize([width, height], countries);
 
       // Create a path generator
-      const path = d3.geoPath()
-        .projection(projection);
+      const path = d3.geoPath().projection(projection);
 
       // Draw the map
-      svg.selectAll('path')
+      svg
+        .selectAll("path")
         .data(countries.features)
         .enter()
-        .append('path')
-        .attr('d', path)
-        .attr('fill', (d: any) => {
+        .append("path")
+        .attr("d", path)
+        .attr("fill", (d: any) => {
           // Try to find the country in our data
           const geoName = d.properties.name;
           const ourName = reverseMap[geoName] || geoName;
-          
+
           const value = filteredData[ourName];
-          
+
           // If we have data for this country, color it accordingly
           if (value && value > 0) {
             return colorScale(value);
           }
           // Otherwise, use a default color
-          return '#ccc';
+          return "#ccc";
         })
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 0.5)
-        .attr('class', 'country')
-        .on('mouseover', function(event, d: any) {
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 0.5)
+        .attr("class", "country")
+        .on("mouseover", function (event, d: any) {
           // Show tooltip
           const geoName = d.properties.name;
           const ourName = reverseMap[geoName] || geoName;
           const value = filteredData[ourName];
-          
-          tooltip
-            .style('opacity', 1)
-            .html(`
-              <strong>${ourName}</strong><br/>
-              ${getDataTypeLabel(dataType)}: ${value ? value.toLocaleString() : 'No data'}
-            `);
+
+          tooltip.style("opacity", 1).html(`
+                <strong>${ourName}</strong><br/>
+                ${getDataTypeLabel(
+                  dataType
+                )}: ${value ? value.toLocaleString() : "No data"}
+              `);
         })
-        .on('mousemove', function(event) {
-          // Position tooltip near mouse
+        .on("mousemove", function (event) {
+          // Use a fixed position relative to the viewport
           tooltip
-            .style('left', `${event.pageX + 15}px`)
-            .style('top', `${event.pageY - 28}px`);
+            .style("left", `${event.clientX + 10}px`)
+            .style("top", `${event.clientY - 10}px`);
         })
-        .on('mouseout', function() {
+        .on("mouseout", function () {
           // Hide tooltip
-          tooltip.style('opacity', 0);
+          tooltip.style("opacity", 0);
         });
 
       // Add a legend
@@ -204,99 +234,116 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
       const legendHeight = 10;
 
       // Create legend scales
-      const legendScale = d3.scaleLog()
+      const legendScale = d3
+        .scaleLog()
         .domain([10, maxValue])
         .range([0, legendWidth]);
 
-      const legendAxis = d3.axisBottom(legendScale)
+      const legendAxis = d3
+        .axisBottom(legendScale)
         .tickValues(getTickValuesForDataType(dataType, maxValue))
-        .tickFormat(d3.format('.0s'));
+        .tickFormat(d3.format(".0s"));
 
       // Create legend container
-      const legend = svg.append('g')
-        .attr('class', 'legend')
-        .attr('transform', `translate(${width - legendWidth - 40}, ${height - 50})`);
+      const legend = svg
+        .append("g")
+        .attr("class", "legend")
+        .attr(
+          "transform",
+          `translate(${width - legendWidth - 40}, ${height - 50})`
+        );
 
       // Create gradient for legend
-      const defs = svg.append('defs');
-      const linearGradient = defs.append('linearGradient')
-        .attr('id', `legend-gradient-${dataType}`)
-        .attr('x1', '0%')
-        .attr('y1', '0%')
-        .attr('x2', '100%')
-        .attr('y2', '0%');
+      const defs = svg.append("defs");
+      const linearGradient = defs
+        .append("linearGradient")
+        .attr("id", `legend-gradient-${dataType}`)
+        .attr("x1", "0%")
+        .attr("y1", "0%")
+        .attr("x2", "100%")
+        .attr("y2", "0%");
 
       const [startColor, endColor] = getColorRangeForDataType(dataType);
-      linearGradient.selectAll('stop')
+      linearGradient
+        .selectAll("stop")
         .data([
-          { offset: '0%', color: startColor },
-          { offset: '100%', color: endColor }
+          { offset: "0%", color: startColor },
+          { offset: "100%", color: endColor },
         ])
         .enter()
-        .append('stop')
-        .attr('offset', d => d.offset)
-        .attr('stop-color', d => d.color);
+        .append("stop")
+        .attr("offset", (d) => d.offset)
+        .attr("stop-color", (d) => d.color);
 
       // Draw colored rectangle for legend
-      legend.append('rect')
-        .attr('width', legendWidth)
-        .attr('height', legendHeight)
-        .style('fill', `url(#legend-gradient-${dataType})`);
+      legend
+        .append("rect")
+        .attr("width", legendWidth)
+        .attr("height", legendHeight)
+        .style("fill", `url(#legend-gradient-${dataType})`);
 
       // Add axis to legend
-      legend.append('g')
-        .attr('transform', `translate(0, ${legendHeight})`)
+      legend
+        .append("g")
+        .attr("transform", `translate(0, ${legendHeight})`)
         .call(legendAxis)
-        .selectAll('text')
-        .style('font-size', '10px');
+        .selectAll("text")
+        .style("font-size", "10px");
 
       // Add legend title
-      legend.append('text')
-        .attr('x', legendWidth / 2)
-        .attr('y', -10)
-        .attr('text-anchor', 'middle')
+      legend
+        .append("text")
+        .attr("x", legendWidth / 2)
+        .attr("y", -10)
+        .attr("text-anchor", "middle")
         .text(`COVID-19 ${getDataTypeLabel(dataType)}`);
-      
     } catch (error) {
-      console.error('Error creating map:', error);
-      setError(`Error creating map: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("Error creating map:", error);
+      setError(
+        `Error creating map: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   };
 
   // Helper function to get appropriate color range for each data type
   function getColorRangeForDataType(dataType: CovidDataType): [string, string] {
     switch (dataType) {
-      case 'cases':
-        return ['#ffeda0', '#f03b20']; // Yellow to red
-      case 'deaths':
-        return ['#fee5d9', '#a50f15']; // Light pink to dark red
-      case 'recovered':
-        return ['#edf8e9', '#31a354']; // Light green to dark green
-      case 'vaccinated':
-        return ['#eff3ff', '#3182bd']; // Light blue to dark blue
+      case "cases":
+        return ["#ffeda0", "#f03b20"]; // Yellow to red
+      case "deaths":
+        return ["#fee5d9", "#a50f15"]; // Light pink to dark red
+      case "recovered":
+        return ["#edf8e9", "#31a354"]; // Light green to dark green
+      case "vaccinated":
+        return ["#eff3ff", "#3182bd"]; // Light blue to dark blue
       default:
-        return ['#ffeda0', '#f03b20']; // Default
+        return ["#ffeda0", "#f03b20"]; // Default
     }
   }
 
   // Helper function to get appropriate label for each data type
   function getDataTypeLabel(dataType: CovidDataType): string {
     switch (dataType) {
-      case 'cases':
-        return 'Total Cases';
-      case 'deaths':
-        return 'Total Deaths';
-      case 'recovered':
-        return 'Total Recovered';
-      case 'vaccinated':
-        return 'Total Vaccinated';
+      case "cases":
+        return "Total Cases";
+      case "deaths":
+        return "Total Deaths";
+      case "recovered":
+        return "Total Recovered";
+      case "vaccinated":
+        return "Total Vaccinated";
       default:
-        return 'Total Cases';
+        return "Total Cases";
     }
   }
 
   // Helper function to get appropriate tick values for each data type
-  function getTickValuesForDataType(dataType: CovidDataType, maxValue: number): number[] {
+  function getTickValuesForDataType(
+    dataType: CovidDataType,
+    maxValue: number
+  ): number[] {
     if (maxValue <= 1000) {
       return [10, 100, 1000];
     }
@@ -316,32 +363,34 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({ dataType = 'cases' }) => 
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      <span className="ml-2">Loading {dataType} data...</span>
-    </div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <span className="ml-2">Loading {dataType} data...</span>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500 p-4 h-full flex items-center justify-center">
-      <div>
-        <p className="font-bold">Error loading data</p>
-        <p>{error}</p>
+    return (
+      <div className="text-red-500 p-4 h-full flex items-center justify-center">
+        <div>
+          <p className="font-bold">Error loading data</p>
+          <p>{error}</p>
+        </div>
       </div>
-    </div>;
+    );
   }
 
   return (
     <div className="relative w-full h-full">
       <div className="w-full h-full overflow-hidden">
         <svg ref={svgRef} className="w-full h-full bg-gray-50"></svg>
-        <div 
-          ref={tooltipRef} 
-          className="absolute bg-white p-2 rounded shadow-lg border border-gray-200 text-sm pointer-events-none opacity-0 transition-opacity"
-          style={{ 
-            left: 0, 
-            top: 0, 
-            zIndex: 10 
+        <div
+          ref={tooltipRef}
+          className="fixed bg-white p-2 rounded shadow-lg border border-gray-200 text-sm pointer-events-none opacity-0 transition-opacity"
+          style={{
+            zIndex: 10,
           }}
         ></div>
       </div>

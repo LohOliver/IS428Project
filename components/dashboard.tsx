@@ -1,8 +1,5 @@
-// Update to the Dashboard component to include tabs for the map
-
 "use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -11,30 +8,165 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import StatisticsPanel from "./statistics-panel";
-import RegionalComparison from "./regional-comparison";
-import CovidWorldMap, { CovidDataType } from "../components/overview-map";
 import { fetchCovidData } from "@/lib/api";
 import type { CovidData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { DashboardNavbar } from "../components/ui/navbar";
+import CovidWorldMap, { CovidDataType } from "../components/overview-map";
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import ContinentCasesChart from "../components/line-chart"
+// Define types
+interface RegionalData {
+  name: string;
+  cases?: number;
+  deaths?: number;
+  recovered?: number;
+  vaccinated?: number;
+}
+
+// Regional comparison component
+function RegionalComparison({ 
+  data, 
+  dataKey, 
+  onRegionSelect, 
+  selectedRegion 
+}: { 
+  data: RegionalData[]; 
+  dataKey: CovidDataType; 
+  onRegionSelect: (region: string) => void; 
+  selectedRegion: string | null; 
+}) {
+  // Sort data by the selected metric in descending order
+  const sortedData = useMemo(() => {
+    return [...data]
+      .sort((a, b) => {
+        const valueA = a[dataKey] || 0;
+        const valueB = b[dataKey] || 0;
+        return valueB - valueA;
+      })
+      .slice(0, 10); // Limit to top 10
+  }, [data, dataKey]);
+  
+  // Format numbers for display
+  const formatNumber = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+    return value.toString();
+  };
+  
+  // Map color based on data key
+  const getColor = () => {
+    switch (dataKey) {
+      case "cases":
+        return "hsl(var(--chart-1))";
+      case "deaths":
+        return "hsl(var(--chart-2))";
+      case "recovered":
+        return "hsl(var(--chart-3))";
+      case "vaccinated":
+        return "hsl(var(--chart-4))";
+      default:
+        return "hsl(var(--chart-1))";
+    }
+  };
+  
+  return (
+    <div className="w-full h-full">
+      <ChartContainer
+        config={{
+          [dataKey]: {
+            label: dataKey.charAt(0).toUpperCase() + dataKey.slice(1),
+            color: getColor(),
+          },
+        }}
+        className="h-full"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={sortedData}
+            layout="vertical"
+            margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
+            onClick={(data) => {
+              if (data && data.activePayload && data.activePayload[0]) {
+                const clickedRegion = data.activePayload[0].payload.name;
+                onRegionSelect(clickedRegion);
+              }
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" tickFormatter={formatNumber} tick={{ fontSize: 12 }} />
+            <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 12 }} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <Bar
+              dataKey={dataKey}
+              fill={getColor()}
+              radius={[0, 4, 4, 0]}
+              cursor="pointer"
+              strokeWidth={selectedRegion ? 2 : 0}
+              stroke={(entry) => entry.name === selectedRegion ? "#000" : undefined}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartContainer>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [covidData, setCovidData] = useState<CovidData | null>(null);
+  const [regionalData, setRegionalData] = useState<RegionalData[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [mapDataType, setMapDataType] = useState<CovidDataType>('cases');
-  const router = useRouter();
+  const [dataType, setDataType] = useState<CovidDataType>('cases');
 
+  // Fetch dashboard data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
+        
+        // Fetch main dashboard data
         const data = await fetchCovidData();
         setCovidData(data);
+        
+        // Fetch top 10 country data for charts
+        const [casesRes, deathsRes, recoveredRes, vaccinatedRes] = await Promise.all([
+          fetch('http://localhost:5002/top10_countries_by_cases'),
+          fetch('http://localhost:5002/top10_countries_by_deaths'),
+          fetch('http://localhost:5002/top10_countries_by_recovered'),
+          fetch('http://localhost:5002/top10_countries_by_vaccination')
+        ]);
+        
+        const [casesData, deathsData, recoveredData, vaccinatedData] = await Promise.all([
+          casesRes.json(),
+          deathsRes.json(),
+          recoveredRes.json(),
+          vaccinatedRes.json()
+        ]);
+        
+        // Create a combined dataset with all countries
+        const allCountries = new Set([
+          ...Object.keys(casesData),
+          ...Object.keys(deathsData),
+          ...Object.keys(recoveredData),
+          ...Object.keys(vaccinatedData)
+        ]);
+        
+        // Combine all data into a single dataset
+        const combinedData = Array.from(allCountries).map(country => ({
+          name: country,
+          cases: casesData[country] || 0,
+          deaths: deathsData[country] || 0,
+          recovered: recoveredData[country] || 0,
+          vaccinated: vaccinatedData[country] || 0
+        }));
+        
+        setRegionalData(combinedData);
+        
       } catch (err) {
         setError("Failed to load COVID-19 data. Please try again later.");
         console.error(err);
@@ -42,7 +174,6 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-
     loadData();
   }, []);
 
@@ -50,18 +181,15 @@ export default function Dashboard() {
     setSelectedCountry(countryCode);
   };
 
-  // Function to navigate to Dashboard2
-  const goToDashboard2 = () => {
-    router.push("/dashboard2");
-  };
-
   const handleRegionSelect = (region: string) => {
-    setSelectedRegion(region);
-    setSelectedCountry(null);
+    setSelectedRegion(region === selectedRegion ? null : region);
   };
 
-  const handleMapDataTypeChange = (dataType: string) => {
-    setMapDataType(dataType as CovidDataType);
+  const handleDataTypeChange = (dataType: string) => {
+    setDataType(dataType as CovidDataType);
+    // Reset selections when changing data type
+    setSelectedRegion(null);
+    setSelectedCountry(null);
   };
 
   if (loading) {
@@ -84,111 +212,88 @@ export default function Dashboard() {
     );
   }
 
-  const filteredCountries = selectedRegion
-    ? covidData?.countries.filter((c) => c.region === selectedRegion)
-    : covidData?.countries;
-
   return (
-    <div className="container mx-auto p-4">
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-          COVID-19 Global Dashboard
-        </h1>
-        <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
-          Interactive visualization of global COVID-19 statistics
-        </p>
-      </header>
-
-      <div className="grid gap-6">
-        <div>
-          <StatisticsPanel />
-        </div>
-        {/* Navigation Button */}
-        <div className="flex justify-center my-6">
-          <Button
-            onClick={goToDashboard2}
-            className="bg-blue-600 text-white hover:bg-blue-700"
-          >
-            Go to Dashboard 2
-          </Button>
-        </div>
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Global COVID-19 Map</CardTitle>
-              <CardDescription>
-                Worldwide visualization of COVID-19 statistics
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="cases" className="w-full mb-6" onValueChange={handleMapDataTypeChange}>
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="cases">Cases</TabsTrigger>
-                  <TabsTrigger value="deaths">Deaths</TabsTrigger>
-                  <TabsTrigger value="recovered">Recovered</TabsTrigger>
-                  <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <div className="h-[550px]">
-                <CovidWorldMap dataType={mapDataType} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Regional Comparisons</CardTitle>
-              <CardDescription>
-                Compare COVID-19 statistics across different regions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="cases" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="cases">Cases</TabsTrigger>
-                  <TabsTrigger value="deaths">Deaths</TabsTrigger>
-                  <TabsTrigger value="recovered">Recovered</TabsTrigger>
-                  <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
-                </TabsList>
-                {covidData && (
-                  <>
-                    <TabsContent value="cases">
-                      <RegionalComparison
-                        data={covidData.regions}
-                        dataKey="cases"
-                        onRegionSelect={handleRegionSelect}
-                        selectedRegion={selectedRegion}
-                      />
-                    </TabsContent>
-                    <TabsContent value="deaths">
-                      <RegionalComparison
-                        data={covidData.regions}
-                        dataKey="deaths"
-                        onRegionSelect={handleRegionSelect}
-                        selectedRegion={selectedRegion}
-                      />
-                    </TabsContent>
-                    <TabsContent value="recovered">
-                      <RegionalComparison
-                        data={covidData.regions}
-                        dataKey="recovered"
-                        onRegionSelect={handleRegionSelect}
-                        selectedRegion={selectedRegion}
-                      />
-                    </TabsContent>
-                    <TabsContent value="vaccinated">
-                      <RegionalComparison
-                        data={covidData.regions}
-                        dataKey="vaccinated"
-                        onRegionSelect={handleRegionSelect}
-                        selectedRegion={selectedRegion}
-                      />
-                    </TabsContent>
-                  </>
+    <div className="flex flex-col min-h-screen">
+      {/* Add the navbar */}
+      <DashboardNavbar />
+      
+      <div className="p-6 flex-1 mx-auto w-11/12">
+        <header className="mb-8 text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+            COVID-19 Global Dashboard
+          </h1>
+          <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
+            Interactive visualization of global COVID-19 statistics
+          </p>
+        </header>
+        
+        <div className="grid gap-6">
+          <div>
+            <StatisticsPanel />
+          </div>
+          
+          {/* Combined visualization section with unified tabs */}
+          <div>
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>COVID-19 Data Visualization</CardTitle>
+                <CardDescription>
+                  Worldwide visualization of COVID-19 statistics
+                </CardDescription>
+                
+                {/* Single set of tabs that controls both visualizations */}
+                <Tabs value={dataType} defaultValue="cases" className="w-full" onValueChange={handleDataTypeChange}>
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="cases">Cases</TabsTrigger>
+                    <TabsTrigger value="deaths">Deaths</TabsTrigger>
+                    <TabsTrigger value="recovered">Recovered</TabsTrigger>
+                    <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </CardHeader>
+              
+              <CardContent>
+                {selectedRegion && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p className="font-medium">Selected: {selectedRegion}</p>
+                    <div className="mt-1 grid grid-cols-4 gap-2 text-sm">
+                      <p>Cases: {regionalData.find(item => item.name === selectedRegion)?.cases?.toLocaleString() || 'N/A'}</p>
+                      <p>Deaths: {regionalData.find(item => item.name === selectedRegion)?.deaths?.toLocaleString() || 'N/A'}</p>
+                      <p>Recovered: {regionalData.find(item => item.name === selectedRegion)?.recovered?.toLocaleString() || 'N/A'}</p>
+                      <p>Vaccinated: {regionalData.find(item => item.name === selectedRegion)?.vaccinated?.toLocaleString() || 'N/A'}</p>
+                    </div>
+                  </div>
                 )}
-              </Tabs>
-            </CardContent>
-          </Card>
+                
+                {/* Grid container for side-by-side layout with 3/5 and 2/5 split */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  {/* Map section - takes up 3/5 of the space */}
+                  <div className="lg:col-span-3 h-[600px]">
+                    <h3 className="text-lg font-medium mb-4">Global Map</h3>
+                    <div className="h-[550px] flex items-center justify-center w-full">
+                      <CovidWorldMap dataType={dataType} />
+                    </div>
+                  </div>
+                  
+                  {/* Regional comparison section - takes up 2/5 of the space */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-lg font-medium mb-4">Top 10 Countries</h3>
+                    <div className="h-[550px]">
+                      <RegionalComparison
+                        data={regionalData}
+                        dataKey={dataType}
+                        onRegionSelect={handleRegionSelect}
+                        selectedRegion={selectedRegion}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <div>
+              <ContinentCasesChart></ContinentCasesChart>
+            </div>
+          </div>
         </div>
       </div>
     </div>
