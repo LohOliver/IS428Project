@@ -1,17 +1,10 @@
 "use client";
 import * as React from "react";
-import { Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { WorldMap } from "../../components/stringency-map";
 import { TimeSeriesChart } from "../../components/time-series-chart";
 import { PolicyBreakdown } from "../../components/policy-breakdown";
+import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
 
 // Define the interfaces for our data types
 interface StringencyData {
@@ -22,7 +15,7 @@ interface CountryStringencyData {
   [country: string]: StringencyData;
 }
 
-export default function DashboardPage() {
+export default function Dashboard2() {
   const [selectedCountry, setSelectedCountry] =
     React.useState<string>("United States");
   const [selectedDate, setSelectedDate] = React.useState<string>("02/2024");
@@ -44,7 +37,6 @@ export default function DashboardPage() {
           "https://is428project.onrender.com/avg_stringency_by_month"
         );
         const data: CountryStringencyData = await response.json();
-
         // Filter dates based on time range
         const [startYear, endYear] = timeRange.includes("-")
           ? timeRange.split("-").map(Number)
@@ -53,22 +45,17 @@ export default function DashboardPage() {
         // Filter and prepare dates
         const filteredDates: string[] = [];
         const filteredData: CountryStringencyData = {};
-
         Object.entries(data).forEach(([country, countryData]) => {
           const filteredCountryData: StringencyData = {};
-
           Object.entries(countryData).forEach(([date, value]) => {
             const [year] = date.split("-").map(Number);
-
             if (year >= startYear && year <= endYear) {
               filteredCountryData[date] = value;
-
               if (!filteredDates.includes(date)) {
                 filteredDates.push(date);
               }
             }
           });
-
           if (Object.keys(filteredCountryData).length > 0) {
             filteredData[country] = filteredCountryData;
           }
@@ -85,28 +72,27 @@ export default function DashboardPage() {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, [timeRange]);
 
   const handleCountryClick = (countryName: string, date: string) => {
     setSelectedCountry(countryName);
-
     setSelectedDate(date);
   };
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="flex items-center gap-2 font-semibold">
-            <Globe className="h-5 w-5" />
-            <span>Global Policy Stringency Dashboard</span>
-          </div>
-        </div>
-      </header>
-
+      {/* Replace the existing header with the DashboardNavbar */}
+      <DashboardNavbar />
+      
       <main className="flex-1 space-y-4 p-4 md:p-6">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Global Policy Stringency Dashboard</h1>
+          <p className="text-muted-foreground">
+            Analysis of COVID-19 policy measures across countries
+          </p>
+        </header>
+        
         {error && (
           <div
             className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
@@ -115,7 +101,7 @@ export default function DashboardPage() {
             {error}
           </div>
         )}
-
+        
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-7">
             <CardHeader />
@@ -139,7 +125,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-
+        
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -152,7 +138,7 @@ export default function DashboardPage() {
               />
             </CardContent>
           </Card>
-
+          
           <Card>
             <CardHeader>
               <CardTitle>
