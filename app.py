@@ -568,6 +568,28 @@ def get_avg_cases_per_month(country):
 
     return jsonify(avg_cases_per_month)
 
+#========================= Covid dashboard 3 ===============================
+@app.route('/icu_patients_by_continent', methods=['GET'])
+def get_avg_icu_patients_by_continent():
+    avg_icu = (
+        db.session.query(
+            CovidData.continent,
+            extract('year', CovidData.date).label('year'),
+            func.avg(CovidData.icu_patients_per_million).label('avg_icu_patients')
+        )
+        .filter(CovidData.icu_patients_per_million != None)  # Exclude NULL values
+        .group_by(CovidData.continent, extract('year', CovidData.date))
+        .order_by(CovidData.continent, extract('year', CovidData.date))
+        .all()
+    )
+
+    # Convert query results into a list of dictionaries
+    result = [
+        {"continent": continent, "year": year, "avg_icu_patients": round(avg_icu_patients, 2)}
+        for continent, year, avg_icu_patients in avg_icu
+    ]
+
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)
