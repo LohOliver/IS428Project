@@ -3,15 +3,6 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
 
-// Define the interfaces for our data types
-interface StringencyData {
-  [date: string]: number;
-}
-
-interface CountryStringencyData {
-  [country: string]: StringencyData;
-}
-
 export default function Dashboard3() {
   // Add your state and logic here
 
