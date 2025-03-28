@@ -3,7 +3,7 @@ import os
 
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, desc, extract
+from sqlalchemy import func, desc, extract, Integer
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -1110,25 +1110,60 @@ def get_max_vaccinations_per_month(country):
     return jsonify(max_vaccinations_per_month)
 
 #========================= Covid dashboard 3 ===============================
-@app.route('/icu_patients_by_continent', methods=['GET'])
-def get_avg_icu_patients_by_continent():
-    avg_icu = (
+@app.route('/continent_vs_population', methods=['GET'])
+def get_avg_population_by_continent():
+    avg_population = (
         db.session.query(
-            CovidData.continent,
-            extract('year', CovidData.date).label('year'),
-            func.avg(CovidData.icu_patients_per_million).label('avg_icu_patients')
+            CovidData.continent, 
+            func.round(func.avg(CovidData.population)).cast(Integer)
         )
-        .filter(CovidData.icu_patients_per_million != None)  # Exclude NULL values
-        .group_by(CovidData.continent, extract('year', CovidData.date))
-        .order_by(CovidData.continent, extract('year', CovidData.date))
+        .group_by(CovidData.continent).filter(CovidData.population != "")
         .all()
     )
 
-    # Convert query results into a list of dictionaries
-    result = [
-        {"continent": continent, "year": year, "avg_icu_patients": round(avg_icu_patients, 2)}
-        for continent, year, avg_icu_patients in avg_icu
-    ]
+    result = {continent: int(avg) for continent, avg in avg_population}
+    return jsonify(result)
+
+
+@app.route('/avg_hospital_beds_by_continent', methods=['GET'])
+def get_avg_hospital_beds_by_continent():
+    avg_beds = db.session.query(
+        CovidData.continent,
+        func.round(func.avg(CovidData.hospital_beds_per_thousand), 3)
+    ).group_by(CovidData.continent).filter(CovidData.hospital_beds_per_thousand != "").all()
+
+    result = {continent: avg for continent, avg in avg_beds}
+    return jsonify(result)
+
+@app.route('/hospital_beds_vs_death_rate', methods=['GET'])
+def get_hospital_beds_vs_death_rate():
+    avg_deaths_and_beds = db.session.query(
+        CovidData.continent,
+        func.round(func.avg(CovidData.total_deaths_per_million)).cast(Integer),
+        func.round(func.avg(CovidData.hospital_beds_per_thousand), 3)
+    ).group_by(CovidData.continent).filter(
+        CovidData.total_deaths_per_million != "",
+        CovidData.hospital_beds_per_thousand != ""
+    ).all()
+
+    result = [{"continent" : continent,"avg_deaths" : int(avg_deaths), "avg_beds": avg_beds} for continent, avg_deaths, avg_beds in avg_deaths_and_beds]
+    return jsonify(result)
+
+@app.route('/handwashing_facilities_vs_cases', methods=['GET'])
+def get_handwashing_facilities_vs_cases():
+    avg_handwashing_and_cases = db.session.query(
+        CovidData.continent,
+        func.round(func.avg(CovidData.handwashing_facilities), 2),
+        func.round(func.avg(CovidData.total_cases_per_million)).cast(Integer)
+    ).group_by(CovidData.continent).filter(
+        CovidData.handwashing_facilities != "",
+        CovidData.total_cases_per_million != ""
+    ).all()
+
+    result = [{"continent": continent, 
+               "avg_handwashing_facilities": avg_handwashing_facilities, 
+               "avg_total_cases_per_million": int(avg_total_cases_per_million)} 
+              for continent, avg_handwashing_facilities, avg_total_cases_per_million in avg_handwashing_and_cases]
 
     return jsonify(result)
 
