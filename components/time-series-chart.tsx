@@ -4,16 +4,19 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TimeSeriesData {
   date: Date;
   value: number;
 }
 
-interface CovidCaseData {
+interface CovidMetricData {
   date: Date;
-  cases: number;
+  value: number;
 }
+
+type MetricType = 'cases' | 'deaths' | 'vaccinations' | 'recovered';
 
 interface TimeSeriesChartProps {
   className?: string;
@@ -22,6 +25,33 @@ interface TimeSeriesChartProps {
   timeSeriesData?: Record<string, Record<string, number>>;
   apiUrl?: string;
 }
+
+const METRIC_CONFIGS = {
+  cases: {
+    label: 'COVID Cases',
+    color: 'crimson',
+    endpoint: 'max_cases_per_month',
+    lighterColor: 'rgba(220, 20, 60, 0.1)'
+  },
+  deaths: {
+    label: 'COVID Deaths',
+    color: '#d11141',
+    endpoint: 'max_deaths_per_month',
+    lighterColor: 'rgba(209, 17, 65, 0.1)'
+  },
+  vaccinations: {
+    label: 'Vaccinations',
+    color: '#00b159',
+    endpoint: 'max_vaccinations_per_month',
+    lighterColor: 'rgba(0, 177, 89, 0.1)'
+  },
+  recovered: {
+    label: 'Recovered',
+    color: '#00aedb',
+    endpoint: 'max_recovered_per_month',
+    lighterColor: 'rgba(0, 174, 219, 0.1)'
+  }
+};
 
 export function TimeSeriesChart({
   className,
@@ -33,9 +63,15 @@ export function TimeSeriesChart({
 }: TimeSeriesChartProps) {
   // State to store data
   const [data, setData] = useState<TimeSeriesData[]>([]);
-  const [covidData, setCovidData] = useState<CovidCaseData[]>([]);
+  const [metricData, setMetricData] = useState<Record<MetricType, CovidMetricData[]>>({
+    cases: [],
+    deaths: [],
+    vaccinations: [],
+    recovered: []
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>('cases');
 
   // Effect to process data when country or timeSeriesData changes
   useEffect(() => {
@@ -68,53 +104,75 @@ export function TimeSeriesChart({
     }
   }, [country, timeSeriesData]);
 
-  // Effect to fetch COVID case data
+  // Effect to fetch COVID metrics data
   useEffect(() => {
     if (!country) {
       return;
     }
 
-    const fetchCovidData = async () => {
+    const fetchAllMetrics = async () => {
+      setIsLoading(true);
+      
       try {
-        setIsLoading(true);
-        const response = await fetch(`http://localhost:5002/avg_cases_per_month/${country}`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch COVID data: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        const parseDate = d3.timeParse("%Y-%m");
-        
-        const processedData: CovidCaseData[] = [];
-        
-        // Process the nested object structure
-        Object.entries(data).forEach(([year, months]: [string, any]) => {
-          Object.entries(months).forEach(([month, cases]: [string, any]) => {
-            const dateStr = `${year}-${month.padStart(2, '0')}`;
-            const date = parseDate(dateStr);
-            if (date) {
-              processedData.push({
-                date,
-                cases: parseFloat(cases)
+        const metricsToFetch: MetricType[] = ['cases', 'deaths', 'vaccinations', 'recovered'];
+        const results: Record<MetricType, CovidMetricData[]> = {
+          cases: [],
+          deaths: [],
+          vaccinations: [],
+          recovered: []
+        };
+
+        // Fetch all metrics in parallel
+        await Promise.all(
+          metricsToFetch.map(async (metric) => {
+            try {
+              const endpoint = METRIC_CONFIGS[metric].endpoint;
+              const response = await fetch(`http://localhost:5002/${endpoint}/${country}`);
+              
+              if (!response.ok) {
+                console.warn(`Failed to fetch ${metric} data: ${response.statusText}`);
+                return;
+              }
+              
+              const data = await response.json();
+              const parseDate = d3.timeParse("%Y-%m");
+              
+              const processedData: CovidMetricData[] = [];
+              
+              // Process the nested object structure
+              Object.entries(data).forEach(([year, months]: [string, any]) => {
+                Object.entries(months).forEach(([month, value]: [string, any]) => {
+                  const dateStr = `${year}-${month.padStart(2, '0')}`;
+                  const date = parseDate(dateStr);
+                  if (date) {
+                    processedData.push({
+                      date,
+                      value: parseFloat(value) || 0
+                    });
+                  }
+                });
               });
+              
+              // Sort data by date
+              processedData.sort((a, b) => a.date.getTime() - b.date.getTime());
+              results[metric] = processedData;
+            } catch (err) {
+              console.error(`Error fetching ${metric} data:`, err);
             }
-          });
-        });
+          })
+        );
         
-        // Sort data by date
-        processedData.sort((a, b) => a.date.getTime() - b.date.getTime());
-        
-        setCovidData(processedData);
+        setMetricData(results);
+        setError(null);
       } catch (err) {
-        console.error("Error fetching COVID data:", err);
-        setError("Failed to fetch COVID case data. Please try again later.");
+        console.error("Error fetching metrics data:", err);
+        setError("Failed to fetch COVID metrics. Please try again later.");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchCovidData();
+    fetchAllMetrics();
   }, [country]);
 
   // Create ref for the chart container
@@ -122,7 +180,7 @@ export function TimeSeriesChart({
 
   // D3 chart creation effect
   useEffect(() => {
-    if (!chartRef.current || data.length === 0 || covidData.length === 0) return;
+    if (!chartRef.current || data.length === 0 || metricData[selectedMetric].length === 0) return;
 
     // Clear previous chart
     d3.select(chartRef.current).selectAll("*").remove();
@@ -140,22 +198,26 @@ export function TimeSeriesChart({
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
+    // Get the current metric config
+    const metricConfig = METRIC_CONFIGS[selectedMetric];
+    const currentMetricData = metricData[selectedMetric];
+
     // Create a unified dataset with dates that exist in both datasets
     // First, create maps of both datasets by date string for easy lookup
     const dateFormat = d3.timeFormat("%Y-%m");
     const dataByDate = new Map(data.map(d => [dateFormat(d.date), d]));
-    const covidByDate = new Map(covidData.map(d => [dateFormat(d.date), d]));
+    const metricByDate = new Map(currentMetricData.map(d => [dateFormat(d.date), d]));
     
     // Get common dates that exist in both datasets
-    const commonDateKeys = [...dataByDate.keys()].filter(dateKey => covidByDate.has(dateKey));
+    const commonDateKeys = [...dataByDate.keys()].filter(dateKey => metricByDate.has(dateKey));
     
     // Filter both datasets to only include common dates
     const filteredData = commonDateKeys.map(dateKey => dataByDate.get(dateKey)).filter(Boolean) as TimeSeriesData[];
-    const filteredCovidData = commonDateKeys.map(dateKey => covidByDate.get(dateKey)).filter(Boolean) as CovidCaseData[];
+    const filteredMetricData = commonDateKeys.map(dateKey => metricByDate.get(dateKey)).filter(Boolean) as CovidMetricData[];
     
     // Define time domain based on common dates
     const timeDomain = d3.extent(commonDateKeys.map(dateKey => 
-      dataByDate.get(dateKey)?.date || covidByDate.get(dateKey)?.date
+      dataByDate.get(dateKey)?.date || metricByDate.get(dateKey)?.date
     ).filter(Boolean)) as [Date, Date];
 
     // Define scales for the primary axis (left)
@@ -170,10 +232,10 @@ export function TimeSeriesChart({
       .nice()
       .range([height, 0]);
 
-    // Define scales for the secondary axis (right) for COVID cases
+    // Define scales for the secondary axis (right) for COVID metrics
     const yScaleRight = d3
       .scaleLinear()
-      .domain([0, d3.max(filteredCovidData, (d) => d.cases) || 0])
+      .domain([0, d3.max(filteredMetricData, (d) => d.value) || 0])
       .nice()
       .range([height, 0]);
 
@@ -210,19 +272,19 @@ export function TimeSeriesChart({
       .attr("y", -40)
       .attr("x", -height / 2)
       .attr("text-anchor", "middle")
-      .text("Value");
+      .text("Stringency Value");
 
     // Draw right y-axis
     svg.append("g")
       .attr("transform", `translate(${width}, 0)`)
       .call(yAxisRight)
       .append("text")
-      .attr("fill", "crimson")
+      .attr("fill", metricConfig.color)
       .attr("transform", "rotate(-90)")
       .attr("y", 40)
       .attr("x", -height / 2)
       .attr("text-anchor", "middle")
-      .text("Total COVID Cases");
+      .text(metricConfig.label);
 
     // Add title
     svg.append("text")
@@ -231,24 +293,17 @@ export function TimeSeriesChart({
       .attr("text-anchor", "middle")
       .style("font-size", "16px")
       .style("font-weight", "bold")
-      .text(`${countryName || country} Data`);
+      .text(`${countryName || country} - ${metricConfig.label} vs Stringency`);
 
-    // Define area generator for COVID data background
-    const covidArea = d3
-      .area<CovidCaseData>()
+    // Define area generator for metric data background
+    const metricArea = d3
+      .area<CovidMetricData>()
       .x((d) => xScale(d.date))
       .y0(height)
-      .y1((d) => yScaleRight(d.cases))
+      .y1((d) => yScaleRight(d.value))
       .curve(d3.curveMonotoneX);
 
-    // Add subtle area fill under COVID line
-    if (filteredCovidData.length > 0) {
-      svg
-        .append("path")
-        .datum(filteredCovidData)
-        .attr("fill", "rgba(220, 20, 60, 0.1)") // Light crimson
-        .attr("d", covidArea);
-    }
+    // Area fill removed as requested
 
     // Define line generator for primary data
     const line = d3
@@ -257,12 +312,12 @@ export function TimeSeriesChart({
       .y((d) => yScaleLeft(d.value))
       .curve(d3.curveMonotoneX);
 
-    // Define line generator for COVID data
-    const covidLine = d3
-      .line<CovidCaseData>()
-      .defined(d => d.cases !== null && !isNaN(d.cases) && yScaleRight(d.cases) >= 0 && yScaleRight(d.cases) <= height)
+    // Define line generator for metric data
+    const metricLine = d3
+      .line<CovidMetricData>()
+      .defined(d => d.value !== null && !isNaN(d.value) && yScaleRight(d.value) >= 0 && yScaleRight(d.value) <= height)
       .x((d) => xScale(d.date))
-      .y((d) => yScaleRight(d.cases))
+      .y((d) => yScaleRight(d.value))
       .curve(d3.curveMonotoneX);
 
     // Draw primary line
@@ -274,29 +329,29 @@ export function TimeSeriesChart({
       .attr("stroke-width", 2)
       .attr("d", line);
 
-    // Draw COVID cases line
-    if (filteredCovidData.length > 0) {
+    // Draw metric line
+    if (filteredMetricData.length > 0) {
       svg
         .append("path")
-        .datum(filteredCovidData)
+        .datum(filteredMetricData)
         .attr("fill", "none")
-        .attr("stroke", "crimson")
+        .attr("stroke", metricConfig.color)
         .attr("stroke-width", 2)
         .attr("stroke-dasharray", "3,3") // Make it dashed to distinguish
-        .attr("d", covidLine);
+        .attr("d", metricLine);
       
-      // Draw COVID data points
+      // Draw metric data points
       svg
-        .selectAll(".covid-dot")
-        .data(filteredCovidData.filter(d => d.cases !== null && !isNaN(d.cases) && 
-                               yScaleRight(d.cases) >= 0 && yScaleRight(d.cases) <= height))
+        .selectAll(".metric-dot")
+        .data(filteredMetricData.filter(d => d.value !== null && !isNaN(d.value) && 
+                               yScaleRight(d.value) >= 0 && yScaleRight(d.value) <= height))
         .enter()
         .append("circle")
-        .attr("class", "covid-dot")
+        .attr("class", "metric-dot")
         .attr("cx", (d) => xScale(d.date))
-        .attr("cy", (d) => yScaleRight(d.cases))
+        .attr("cy", (d) => yScaleRight(d.value))
         .attr("r", 3)
-        .attr("fill", "crimson");
+        .attr("fill", metricConfig.color);
     }
 
     // Draw primary data points
@@ -313,7 +368,7 @@ export function TimeSeriesChart({
       
     // Add legend
     const legend = svg.append("g")
-      .attr("transform", `translate(${width - 140}, -20)`);
+      .attr("transform", `translate(${width - 160}, -20)`);
     
     // Primary data legend
     legend.append("rect")
@@ -326,21 +381,21 @@ export function TimeSeriesChart({
     legend.append("text")
       .attr("x", 20)
       .attr("y", 12)
-      .text("Primary Value")
+      .text("Stringency Index")
       .style("font-size", "12px");
     
-    // COVID data legend
+    // Metric data legend
     legend.append("rect")
       .attr("x", 0)
       .attr("y", 25)
       .attr("width", 15)
       .attr("height", 15)
-      .attr("fill", "crimson");
+      .attr("fill", metricConfig.color);
     
     legend.append("text")
       .attr("x", 20)
       .attr("y", 37)
-      .text("COVID Cases")
+      .text(metricConfig.label)
       .style("font-size", "12px");
       
     // Add tooltip
@@ -362,7 +417,7 @@ export function TimeSeriesChart({
       .on("mouseover", function(event, d) {
         tooltip
           .style("opacity", 1)
-          .html(`Date: ${d3.timeFormat("%B %Y")(d.date)}<br>Value: ${d.value}`)
+          .html(`Date: ${d3.timeFormat("%B %Y")(d.date)}<br>Stringency: ${d.value.toFixed(1)}`)
           .style("left", (event.pageX + 10) + "px")
           .style("top", (event.pageY - 28) + "px");
       })
@@ -370,13 +425,14 @@ export function TimeSeriesChart({
         tooltip.style("opacity", 0);
       });
     
-    // Tooltip for COVID data
+    // Tooltip for metric data
     svg
-      .selectAll(".covid-dot")
+      .selectAll(".metric-dot")
       .on("mouseover", function(event, d) {
+        let tooltipContent = `Date: ${d3.timeFormat("%B %Y")(d.date)}<br>${metricConfig.label}: ${d.value.toLocaleString()}`;
         tooltip
           .style("opacity", 1)
-          .html(`Date: ${d3.timeFormat("%B %Y")(d.date)}<br>COVID Cases: ${d.cases.toLocaleString()}`)
+          .html(tooltipContent)
           .style("left", (event.pageX + 10) + "px")
           .style("top", (event.pageY - 28) + "px");
       })
@@ -384,16 +440,33 @@ export function TimeSeriesChart({
         tooltip.style("opacity", 0);
       });
     
-  }, [data, covidData]);
+  }, [data, metricData, selectedMetric, countryName, country]);
 
   return (
     <div className={cn("w-full", className)} {...props}>
       {isLoading ? (
-        <p>Loading...</p>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-600">Loading data...</span>
+        </div>
       ) : error ? (
-        <p>{error}</p>
+        <div className="text-center p-4 bg-red-50 text-red-500 rounded-md">
+          {error}
+        </div>
       ) : (
-        <div ref={chartRef} className="w-full h-96"></div>
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <Tabs defaultValue="cases" onValueChange={(value) => setSelectedMetric(value as MetricType)} className="w-full">
+              <TabsList className="grid grid-cols-4 w-full">
+                <TabsTrigger value="cases">Cases</TabsTrigger>
+                <TabsTrigger value="deaths">Deaths</TabsTrigger>
+                <TabsTrigger value="vaccinations">Vaccinations</TabsTrigger>
+                <TabsTrigger value="recovered">Recovered</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div ref={chartRef} className="w-full h-96 bg-white p-4 rounded-lg shadow"></div>
+        </div>
       )}
     </div>
   );

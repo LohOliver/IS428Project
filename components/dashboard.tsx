@@ -14,9 +14,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { DashboardNavbar } from "../components/ui/navbar";
 import CovidWorldMap, { CovidDataType } from "../components/overview-map";
-import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import ContinentCasesChart from "../components/line-chart"
+import {
+  Bar,
+  BarChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import ContinentCasesChart from "../components/line-chart";
+
 // Define types
 interface RegionalData {
   name: string;
@@ -27,16 +39,16 @@ interface RegionalData {
 }
 
 // Regional comparison component
-function RegionalComparison({ 
-  data, 
-  dataKey, 
-  onRegionSelect, 
-  selectedRegion 
-}: { 
-  data: RegionalData[]; 
-  dataKey: CovidDataType; 
-  onRegionSelect: (region: string) => void; 
-  selectedRegion: string | null; 
+function RegionalComparison({
+  data,
+  dataKey,
+  onRegionSelect,
+  selectedRegion,
+}: {
+  data: RegionalData[];
+  dataKey: CovidDataType;
+  onRegionSelect: (region: string) => void;
+  selectedRegion: string | null;
 }) {
   // Sort data by the selected metric in descending order
   const sortedData = useMemo(() => {
@@ -48,14 +60,14 @@ function RegionalComparison({
       })
       .slice(0, 10); // Limit to top 10
   }, [data, dataKey]);
-  
+
   // Format numbers for display
   const formatNumber = (value: number) => {
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
     return value.toString();
   };
-  
+
   // Map color based on data key
   const getColor = () => {
     switch (dataKey) {
@@ -71,7 +83,7 @@ function RegionalComparison({
         return "hsl(var(--chart-1))";
     }
   };
-  
+
   return (
     <div className="w-full h-full">
       <ChartContainer
@@ -96,8 +108,17 @@ function RegionalComparison({
             }}
           >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" tickFormatter={formatNumber} tick={{ fontSize: 12 }} />
-            <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 12 }} />
+            <XAxis
+              type="number"
+              tickFormatter={formatNumber}
+              tick={{ fontSize: 12 }}
+            />
+            <YAxis
+              dataKey="name"
+              type="category"
+              width={90}
+              tick={{ fontSize: 12 }}
+            />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar
               dataKey={dataKey}
@@ -105,7 +126,9 @@ function RegionalComparison({
               radius={[0, 4, 4, 0]}
               cursor="pointer"
               strokeWidth={selectedRegion ? 2 : 0}
-              stroke={(entry) => entry.name === selectedRegion ? "#000" : undefined}
+              stroke={(entry) =>
+                entry.name === selectedRegion ? "#000" : undefined
+              }
             />
           </BarChart>
         </ResponsiveContainer>
@@ -121,52 +144,53 @@ export default function Dashboard() {
   const [regionalData, setRegionalData] = useState<RegionalData[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [dataType, setDataType] = useState<CovidDataType>('cases');
+  const [dataType, setDataType] = useState<CovidDataType>("cases");
 
   // Fetch dashboard data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch main dashboard data
         const data = await fetchCovidData();
         setCovidData(data);
-        
+
         // Fetch top 10 country data for charts
-        const [casesRes, deathsRes, recoveredRes, vaccinatedRes] = await Promise.all([
-          fetch('http://localhost:5002/top10_countries_by_cases'),
-          fetch('http://localhost:5002/top10_countries_by_deaths'),
-          fetch('http://localhost:5002/top10_countries_by_recovered'),
-          fetch('http://localhost:5002/top10_countries_by_vaccination')
-        ]);
-        
-        const [casesData, deathsData, recoveredData, vaccinatedData] = await Promise.all([
-          casesRes.json(),
-          deathsRes.json(),
-          recoveredRes.json(),
-          vaccinatedRes.json()
-        ]);
-        
+        const [casesRes, deathsRes, recoveredRes, vaccinatedRes] =
+          await Promise.all([
+            fetch("http://localhost:5002/top10_countries_by_cases"),
+            fetch("http://localhost:5002/top10_countries_by_deaths"),
+            fetch("http://localhost:5002/top10_countries_by_recovered"),
+            fetch("http://localhost:5002/top10_countries_by_vaccination"),
+          ]);
+
+        const [casesData, deathsData, recoveredData, vaccinatedData] =
+          await Promise.all([
+            casesRes.json(),
+            deathsRes.json(),
+            recoveredRes.json(),
+            vaccinatedRes.json(),
+          ]);
+
         // Create a combined dataset with all countries
         const allCountries = new Set([
           ...Object.keys(casesData),
           ...Object.keys(deathsData),
           ...Object.keys(recoveredData),
-          ...Object.keys(vaccinatedData)
+          ...Object.keys(vaccinatedData),
         ]);
-        
+
         // Combine all data into a single dataset
-        const combinedData = Array.from(allCountries).map(country => ({
+        const combinedData = Array.from(allCountries).map((country) => ({
           name: country,
           cases: casesData[country] || 0,
           deaths: deathsData[country] || 0,
           recovered: recoveredData[country] || 0,
-          vaccinated: vaccinatedData[country] || 0
+          vaccinated: vaccinatedData[country] || 0,
         }));
-        
+
         setRegionalData(combinedData);
-        
       } catch (err) {
         setError("Failed to load COVID-19 data. Please try again later.");
         console.error(err);
@@ -216,7 +240,7 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen">
       {/* Add the navbar */}
       <DashboardNavbar />
-      
+
       <div className="p-6 flex-1 mx-auto w-11/12">
         <header className="mb-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -226,73 +250,114 @@ export default function Dashboard() {
             Interactive visualization of global COVID-19 statistics
           </p>
         </header>
-        
+
         <div className="grid gap-6">
           <div>
             <StatisticsPanel />
           </div>
-          
-          {/* Combined visualization section with unified tabs */}
-          <div>
+
+          {/* World Map Card - Now at the top */}
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>COVID-19 Global Map</CardTitle>
+              <CardDescription>
+                Worldwide visualization of COVID-19 statistics
+              </CardDescription>
+
+              {/* Tabs for data type selection */}
+              <Tabs
+                value={dataType}
+                defaultValue="cases"
+                className="w-full"
+                onValueChange={handleDataTypeChange}
+              >
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="cases">Cases</TabsTrigger>
+                  <TabsTrigger value="deaths">Deaths</TabsTrigger>
+                  <TabsTrigger value="recovered">Recovered</TabsTrigger>
+                  <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardHeader>
+
+            <CardContent>
+              {selectedRegion && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <p className="font-medium">Selected: {selectedRegion}</p>
+                  <div className="mt-1 grid grid-cols-4 gap-2 text-sm">
+                    <p>
+                      Cases:{" "}
+                      {regionalData
+                        .find((item) => item.name === selectedRegion)
+                        ?.cases?.toLocaleString() || "N/A"}
+                    </p>
+                    <p>
+                      Deaths:{" "}
+                      {regionalData
+                        .find((item) => item.name === selectedRegion)
+                        ?.deaths?.toLocaleString() || "N/A"}
+                    </p>
+                    <p>
+                      Recovered:{" "}
+                      {regionalData
+                        .find((item) => item.name === selectedRegion)
+                        ?.recovered?.toLocaleString() || "N/A"}
+                    </p>
+                    <p>
+                      Vaccinated:{" "}
+                      {regionalData
+                        .find((item) => item.name === selectedRegion)
+                        ?.vaccinated?.toLocaleString() || "N/A"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Full width map */}
+              <div className="h-[500px] w-full">
+                <CovidWorldMap dataType={dataType} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Charts section - Bar chart and Line chart side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Bar Chart */}
             <Card className="overflow-hidden">
               <CardHeader>
-                <CardTitle>COVID-19 Data Visualization</CardTitle>
+                <CardTitle>Top 10 Countries</CardTitle>
                 <CardDescription>
-                  Worldwide visualization of COVID-19 statistics
+                  Countries with highest {dataType} counts
                 </CardDescription>
-                
-                {/* Single set of tabs that controls both visualizations */}
-                <Tabs value={dataType} defaultValue="cases" className="w-full" onValueChange={handleDataTypeChange}>
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="cases">Cases</TabsTrigger>
-                    <TabsTrigger value="deaths">Deaths</TabsTrigger>
-                    <TabsTrigger value="recovered">Recovered</TabsTrigger>
-                    <TabsTrigger value="vaccinated">Vaccinated</TabsTrigger>
-                  </TabsList>
-                </Tabs>
               </CardHeader>
-              
+
               <CardContent>
-                {selectedRegion && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                    <p className="font-medium">Selected: {selectedRegion}</p>
-                    <div className="mt-1 grid grid-cols-4 gap-2 text-sm">
-                      <p>Cases: {regionalData.find(item => item.name === selectedRegion)?.cases?.toLocaleString() || 'N/A'}</p>
-                      <p>Deaths: {regionalData.find(item => item.name === selectedRegion)?.deaths?.toLocaleString() || 'N/A'}</p>
-                      <p>Recovered: {regionalData.find(item => item.name === selectedRegion)?.recovered?.toLocaleString() || 'N/A'}</p>
-                      <p>Vaccinated: {regionalData.find(item => item.name === selectedRegion)?.vaccinated?.toLocaleString() || 'N/A'}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Grid container for side-by-side layout with 3/5 and 2/5 split */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                  {/* Map section - takes up 3/5 of the space */}
-                  <div className="lg:col-span-3 h-[600px]">
-                    <h3 className="text-lg font-medium mb-4">Global Map</h3>
-                    <div className="h-[550px] flex items-center justify-center w-full">
-                      <CovidWorldMap dataType={dataType} />
-                    </div>
-                  </div>
-                  
-                  {/* Regional comparison section - takes up 2/5 of the space */}
-                  <div className="lg:col-span-2">
-                    <h3 className="text-lg font-medium mb-4">Top 10 Countries</h3>
-                    <div className="h-[550px]">
-                      <RegionalComparison
-                        data={regionalData}
-                        dataKey={dataType}
-                        onRegionSelect={handleRegionSelect}
-                        selectedRegion={selectedRegion}
-                      />
-                    </div>
-                  </div>
+                <div className="overflow-hidden w-2/3 ">
+                  <RegionalComparison
+                    data={regionalData}
+                    dataKey={dataType}
+                    onRegionSelect={handleRegionSelect}
+                    selectedRegion={selectedRegion}
+                  />
                 </div>
               </CardContent>
             </Card>
-            <div>
-              <ContinentCasesChart></ContinentCasesChart>
-            </div>
+
+            {/* Line Chart */}
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Continent Trends</CardTitle>
+                <CardDescription>
+                  COVID-19 {dataType} statistics by continent over time
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent>
+                <div className="h-[400px]">
+                  <ContinentCasesChart dataType={dataType} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

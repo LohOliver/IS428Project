@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
@@ -33,10 +32,11 @@ export function WorldMap({
   const [currentDateIndex, setCurrentDateIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(1000);
-  const [selectedCountry, setSelectedCountry] = useState<string>("Singapore"); // Default to Singapore
+  const [selectedCountry, setSelectedCountry] = useState<string>("Singapore");
   const animationRef = useRef<NodeJS.Timeout | null>(null);
   const zoomRef = useRef<any>(null);
   const initialRenderRef = useRef(true);
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
   useEffect(() => {
     const loadGeoData = async () => {
@@ -84,7 +84,9 @@ export function WorldMap({
       clearInterval(animationRef.current);
       animationRef.current = null;
     }
-    return () => clearInterval(animationRef.current as NodeJS.Timeout);
+    return () => {
+      if (animationRef.current) clearInterval(animationRef.current);
+    };
   }, [isPlaying, availableDates.length, animationSpeed]);
 
   useEffect(() => {
@@ -94,15 +96,21 @@ export function WorldMap({
     svg.selectAll("*").remove();
 
     const width = svgRef.current.clientWidth || 800;
-    const height = svgRef.current.clientHeight || 400;
+    const height = svgRef.current.clientHeight || 600;
+
+    // Calculate scale to fit the entire world map at zoom level 1
     const projection = d3
       .geoNaturalEarth1()
-      .scale(width / 6)
+      .fitSize([width, height], { type: "Sphere" }) // Fit to sphere ensures the full globe is visible
       .translate([width / 2, height / 2]);
+
     const pathGenerator = d3.geoPath().projection(projection);
+
+    // Improved color scale with a more appealing blue gradient
     const colorScale = d3
       .scaleSequential(d3.interpolateBlues)
-      .domain([0, maxStringency || 1]);
+      .domain([0, maxStringency || 1])
+      .clamp(true); // Prevent values outside the domain from producing unexpected colors
 
     const currentDate = availableDates[currentDateIndex];
     const currentData: { [country: string]: number } = Object.fromEntries(
@@ -114,43 +122,162 @@ export function WorldMap({
 
     const tooltip = d3.select(tooltipRef.current);
 
-    // Create a group for the map content that will be transformed during zoom
-    const mapGroup = svg.append("g").attr("class", "map-container");
-
-    // Add the title before applying zoom to keep it fixed
+    // Add a background rectangle for better aesthetics
     svg
+      .append("rect")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("fill", "#f8fafc") // Light background color
+      .attr("rx", 8) // Rounded corners
+      .attr("ry", 8);
+
+    // Create a group for the map content with a margin for better presentation
+    const mapGroup = svg
+      .append("g")
+      .attr("class", "map-container")
+      .attr("transform", "translate(0, 10)"); // Small top margin
+
+    // Add outline of globe for better context
+    mapGroup
+      .append("path")
+      .datum({ type: "Sphere" })
+      .attr("d", pathGenerator)
+      .attr("fill", "#f1f5f9")
+      .attr("stroke", "#cbd5e1")
+      .attr("stroke-width", 0.5);
+
+    // Add a subtle drop shadow for depth
+    mapGroup
+      .append("filter")
+      .attr("id", "drop-shadow")
+      .append("feDropShadow")
+      .attr("dx", 0)
+      .attr("dy", 1)
+      .attr("stdDeviation", 2)
+      .attr("flood-opacity", 0.2);
+
+    // Add a legend for the color scale
+    const legendWidth = 200;
+    const legendHeight = 15;
+    const legendX = width - legendWidth - 20;
+    const legendY = height - 70;
+
+    const legendScale = d3
+      .scaleLinear()
+      .domain([0, maxStringency])
+      .range([0, legendWidth]);
+
+    const legendAxis = d3
+      .axisBottom(legendScale)
+      .ticks(5)
+      .tickFormat((d) => d.toString());
+
+    const legend = svg
+      .append("g")
+      .attr("class", "legend")
+      .attr("transform", `translate(${legendX}, ${legendY})`);
+
+    // Create gradient for legend
+    const defs = svg.append("defs");
+    const linearGradient = defs
+      .append("linearGradient")
+      .attr("id", "linear-gradient")
+      .attr("x1", "0%")
+      .attr("y1", "0%")
+      .attr("x2", "100%")
+      .attr("y2", "0%");
+
+    // Set the gradient colors
+    linearGradient
+      .selectAll("stop")
+      .data([0, 0.2, 0.4, 0.6, 0.8, 1])
+      .enter()
+      .append("stop")
+      .attr("offset", (d) => d * 100 + "%")
+      .attr("stop-color", (d) => colorScale(d * maxStringency));
+
+    // Draw the legend rectangle with the gradient
+    legend
+      .append("rect")
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .style("fill", "url(#linear-gradient)")
+      .style("stroke", "#cbd5e1") // Light border
+      .style("stroke-width", 0.5);
+
+    // Add legend axis
+    legend
+      .append("g")
+      .attr("transform", `translate(0, ${legendHeight})`)
+      .call(legendAxis)
+      .selectAll("text")
+      .style("font-size", "10px")
+      .style("fill", "#64748b");
+
+    // Add legend title
+    legend
+      .append("text")
+      .attr("x", 0)
+      .attr("y", -5)
+      .attr("font-size", "12px")
+      .attr("fill", "#334155")
+      .text("Stringency Index");
+
+    // Add title with the current date
+    const titleGroup = svg.append("g").attr("class", "map-title");
+    
+    titleGroup
       .append("text")
       .attr("x", width / 2)
-      .attr("y", 30)
+      .attr("y", 25)
       .attr("text-anchor", "middle")
       .attr("font-size", "18px")
       .attr("font-weight", "bold")
+      .attr("fill", "#1e293b") // Darker text for better contrast
+      .text("COVID-19 Stringency Index");
+    
+    titleGroup
+      .append("text")
+      .attr("x", width / 2)
+      .attr("y", 50)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "14px")
+      .attr("fill", "#64748b") // Subtitle in a lighter color
       .text(
-        `COVID-19 Stringency Index: ${new Date(currentDate).toLocaleDateString(
-          "en-US",
-          { year: "numeric", month: "long" }
-        )}`
+        `${new Date(currentDate).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+        })}`
       );
 
-    // Draw the map paths inside the group
+    // Draw the map paths inside the group with improved styling
     mapGroup
-      .selectAll("path")
+      .selectAll("path.country")
       .data(worldGeoData.features)
       .enter()
       .append("path")
+      .attr("class", "country")
       .attr("d", pathGenerator)
-      .attr("fill", (d: any) => colorScale(currentData[d.properties.name] || 0))
-      .attr("stroke", "#808080")
+      .attr("fill", (d: any) => {
+        // Handle missing data gracefully
+        const value = currentData[d.properties.name];
+        return value !== undefined ? colorScale(value) : "#f1f5f9"; // Light gray for no data
+      })
+      .attr("stroke", "#94a3b8") // Softer border color
       .attr("stroke-width", 0.5)
+      .attr("stroke-opacity", 0.7)
       .attr("class", (d: any) =>
-        d.properties.name === selectedCountry ? "selected-country" : ""
+        d.properties.name === selectedCountry ? "selected-country country" : "country"
       )
       .style("cursor", "pointer")
       .style("stroke-width", (d: any) =>
         d.properties.name === selectedCountry ? 2 : 0.5
       )
       .style("stroke", (d: any) =>
-        d.properties.name === selectedCountry ? "#ff6347" : "#808080"
+        d.properties.name === selectedCountry ? "#f43f5e" : "#94a3b8"
+      )
+      .style("filter", (d: any) =>
+        d.properties.name === selectedCountry ? "url(#drop-shadow)" : "none"
       )
       .on("click", (event: any, d: any) => {
         const countryName = d.properties.name;
@@ -158,86 +285,90 @@ export function WorldMap({
         onCountryClick(countryName, currentDate);
       })
       .on("mouseover", (event: any, d: any) => {
-        const value = currentData[d.properties.name] || 0;
+        const countryName = d.properties.name;
+        const value = currentData[countryName] || 0;
+
+        // Highlight the hovered country
+        d3.select(event.target)
+          .transition()
+          .duration(200)
+          .style("fill-opacity", 0.8)
+          .style("stroke-width", 1.5)
+          .style("stroke", "#0284c7");
+
+        setHoveredCountry(countryName);
+
+        // Enhanced tooltip
         tooltip
           .style("visibility", "visible")
-          .text(`${d.properties.name}: ${value.toFixed(2)}`);
-
-        // Position tooltip near cursor on mouseover
-        tooltip
+          .style("opacity", 0)
+          .html(
+            `<div>
+              <strong>${countryName}</strong><br/>
+              <span>Stringency: ${value.toFixed(2)}</span>
+            </div>`
+          )
           .style("left", `${event.clientX + 5}px`)
-          .style("top", `${event.clientY - 28}px`);
+          .style("top", `${event.clientY - 28}px`)
+          .transition()
+          .duration(200)
+          .style("opacity", 1);
       })
       .on("mousemove", (event: any) => {
-        // Update tooltip position as mouse moves
         tooltip
-          .style("left", `${event.clientX + 5}px`)
-          .style("top", `${event.clientY - 28}px`);
+          .style("left", `${event.clientX + 10}px`)
+          .style("top", `${event.clientY - 40}px`);
       })
-      .on("mouseout", () => {
-        tooltip.style("visibility", "hidden");
+      .on("mouseout", (event: any) => {
+        // Reset country highlight
+        d3.select(event.target)
+          .transition()
+          .duration(200)
+          .style("fill-opacity", 1)
+          .style("stroke-width", (d: any) =>
+            d.properties.name === selectedCountry ? 2 : 0.5
+          )
+          .style("stroke", (d: any) =>
+            d.properties.name === selectedCountry ? "#f43f5e" : "#94a3b8"
+          );
+
+        setHoveredCountry(null);
+
+        tooltip
+          .transition()
+          .duration(200)
+          .style("opacity", 0)
+          .on("end", () => tooltip.style("visibility", "hidden"));
       });
 
-    // If Singapore is selected, zoom to it on initial render
-    if (selectedCountry === "Singapore" && initialRenderRef.current) {
-      // Find Singapore in the data to get its coordinates
-      const singapore = worldGeoData.features.find(
-        (f: any) => f.properties.name === "Singapore"
-      );
-      if (singapore) {
-        const bounds = pathGenerator.bounds(singapore);
-        const dx = bounds[1][0] - bounds[0][0];
-        const dy = bounds[1][1] - bounds[0][1];
-        const x = (bounds[0][0] + bounds[1][0]) / 2;
-        const y = (bounds[0][1] + bounds[1][1]) / 2;
-        const scale = Math.max(
-          1,
-          Math.min(8, 0.9 / Math.max(dx / width, dy / height))
-        );
-        const translate = [width / 2 - scale * x, height / 2 - scale * y];
-
-        svg
-          .transition()
-          .duration(750)
-          .call(
-            zoomRef.current.transform,
-            d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-          );
-      }
-    }
-
-    // Create zoom behavior
+    // Create zoom behavior with smoother transitions
     const zoom = d3
       .zoom()
-      .scaleExtent([1, 8]) // Set min/max zoom levels
+      .scaleExtent([1, 8]) // Allow zooming out a bit and zooming in
       .on("zoom", (event: any) => {
-        // Apply the zoom transformation to the map group only
         mapGroup.attr("transform", event.transform);
-
-        // Adjust stroke width based on zoom level for better visibility
         mapGroup.selectAll("path").attr("stroke-width", (d: any) => {
-          if (d.properties.name === selectedCountry) {
+          if (d3.select(d3.event.currentTarget).classed("selected-country")) {
             return 2 / event.transform.k;
           }
           return 0.5 / event.transform.k;
         });
       });
 
-    // Store zoom behavior reference for external controls
     zoomRef.current = zoom;
-
-    // Apply zoom behavior to SVG
     svg.call(zoom);
 
-    // Double-click to zoom in
-    svg.on("dblclick.zoom", null); // Disable default double-click zoom
+    // Handle double-click for smoother zoom
+    svg.on("dblclick.zoom", null);
     svg.on("dblclick", (event) => {
       const transform = d3.zoomTransform(svg.node()!);
       const newScale = transform.k * 1.5;
       const coordinates = d3.pointer(event);
+
       svg
         .transition()
-        .duration(300)
+        .duration(400)
+        .ease(d3.easeCubicOut)
         .call(
           zoom.transform,
           d3.zoomIdentity
@@ -248,6 +379,13 @@ export function WorldMap({
             .scale(newScale)
         );
     });
+
+    // If Singapore is selected, don't automatically zoom to it on initial render
+    // Instead, show the full world map by default
+    if (selectedCountry === "Singapore" && initialRenderRef.current) {
+      // Simply call onCountryClick without zooming
+      onCountryClick("Singapore", currentDate);
+    }
   }, [
     worldGeoData,
     availableDates,
@@ -263,9 +401,11 @@ export function WorldMap({
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
       const currentTransform = d3.zoomTransform(svg.node()!);
+
       svg
         .transition()
         .duration(300)
+        .ease(d3.easeCubicOut)
         .call(
           zoomRef.current.transform,
           d3.zoomIdentity
@@ -280,14 +420,16 @@ export function WorldMap({
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
       const currentTransform = d3.zoomTransform(svg.node()!);
+
       svg
         .transition()
         .duration(300)
+        .ease(d3.easeCubicOut)
         .call(
           zoomRef.current.transform,
           d3.zoomIdentity
             .translate(currentTransform.x, currentTransform.y)
-            .scale(Math.max(1, currentTransform.k / 1.5))
+            .scale(Math.max(0.7, currentTransform.k / 1.5))
         );
     }
   };
@@ -296,9 +438,11 @@ export function WorldMap({
   const handleResetZoom = () => {
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
+
       svg
         .transition()
-        .duration(300)
+        .duration(400)
+        .ease(d3.easeCubicOut)
         .call(zoomRef.current.transform, d3.zoomIdentity);
     }
   };
@@ -307,131 +451,174 @@ export function WorldMap({
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newIndex = Number(e.target.value);
     setCurrentDateIndex(newIndex);
+
+    // If playing, stop when manually moving the slider
+    if (isPlaying) {
+      setIsPlaying(false);
+    }
   };
 
+  // Format the current date for display
+  const formattedDate = availableDates[currentDateIndex]
+    ? new Date(availableDates[currentDateIndex]).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+
   return (
-    <div className={className} style={{ position: "relative" }}>
-      {loading && <p>Loading map...</p>}
-      <svg ref={svgRef} width="100%" height="500px" />
-      <div
-        ref={tooltipRef}
-        style={{
-          position: "fixed", // Changed from absolute to fixed for better positioning
-          background: "rgba(0, 0, 0, 0.75)",
-          color: "white",
-          padding: "5px 10px",
-          borderRadius: "5px",
-          fontSize: "12px",
-          visibility: "hidden",
-          pointerEvents: "none",
-          zIndex: 1000, // Added z-index to ensure tooltip appears above other elements
-          transform: "translate(0, 0)", // Reset any transform
-          maxWidth: "200px", // Added max width for better appearance
-          whiteSpace: "nowrap", // Keep text on single line
-        }}
-      />
-
-      {/* Zoom controls */}
-      <div
-        style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "5px",
-        }}
-      >
-        <button
-          onClick={handleZoomIn}
-          style={{
-            padding: "5px 10px",
-            borderRadius: "4px",
-            background: "#ffffff",
-            border: "1px solid #ccc",
-          }}
-        >
-          +
-        </button>
-        <button
-          onClick={handleZoomOut}
-          style={{
-            padding: "5px 10px",
-            borderRadius: "4px",
-            background: "#ffffff",
-            border: "1px solid #ccc",
-          }}
-        >
-          -
-        </button>
-        <button
-          onClick={handleResetZoom}
-          style={{
-            padding: "5px 10px",
-            borderRadius: "4px",
-            background: "#ffffff",
-            border: "1px solid #ccc",
-            fontSize: "12px",
-          }}
-        >
-          Reset
-        </button>
-      </div>
-
-      <input
-        type="range"
-        min="0"
-        max={availableDates.length - 1}
-        value={currentDateIndex}
-        onChange={handleSliderChange}
-        style={{ width: "100%", marginTop: "10px" }}
-      />
-      <div style={{ textAlign: "center", marginTop: "5px" }}>
-        {new Date(availableDates[currentDateIndex]).toLocaleDateString(
-          "en-US",
-          { year: "numeric", month: "long" }
-        )}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "10px",
-          marginTop: "10px",
-        }}
-      >
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          style={{ padding: "5px 10px", borderRadius: "4px" }}
-        >
-          {isPlaying ? "Pause" : "Play"}
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <label htmlFor="speed">Speed:</label>
-          <select
-            id="speed"
-            value={animationSpeed}
-            onChange={(e) => setAnimationSpeed(Number(e.target.value))}
-            style={{ padding: "5px" }}
-          >
-            <option value="2000">Slow</option>
-            <option value="1000">Normal</option>
-            <option value="500">Fast</option>
-          </select>
+    <div
+      className={`${className} relative rounded-lg shadow-lg bg-white p-4 overflow-hidden`}
+    >
+      {loading ? (
+        <div className="flex items-center justify-center h-[650px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-600">Loading map data...</span>
         </div>
-      </div>
-      {selectedCountry && (
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: "10px",
-            padding: "8px",
-            backgroundColor: "#f0f0f0",
-            borderRadius: "4px",
-          }}
-        >
-          Selected country: <strong>{selectedCountry}</strong>
-        </div>
+      ) : (
+        <>
+          <svg
+            ref={svgRef}
+            width="100%"
+            height="85%"
+            className="overflow-hidden"
+          />
+
+          <div
+            ref={tooltipRef}
+            className="fixed bg-gray-800 bg-opacity-90 text-white py-2 px-3 rounded-md text-sm shadow-lg invisible pointer-events-none z-50 border border-gray-700 max-w-xs"
+            style={{
+              transition: "opacity 0.2s ease-in-out",
+            }}
+          />
+
+          {/* Zoom controls */}
+          <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
+            <button
+              onClick={handleZoomIn}
+              className="w-8 h-8 flex items-center justify-center rounded bg-white shadow-md border border-gray-200 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="w-8 h-8 flex items-center justify-center rounded bg-white shadow-md border border-gray-200 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <button
+              onClick={handleResetZoom}
+              className="w-8 h-8 flex items-center justify-center rounded bg-white shadow-md border border-gray-200 hover:bg-gray-50 transition-colors text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Reset zoom"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z" />
+                <path d="M12 8v4l3 3" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-6">
+            <div className="relative">
+              <input
+                type="range"
+                min="0"
+                max={availableDates.length - 1}
+                value={currentDateIndex}
+                onChange={handleSliderChange}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+
+              <div className="mt-3 text-center text-sm font-medium text-gray-700">
+                {formattedDate}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-6 mt-4">
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className={`px-4 py-2 rounded-full flex items-center gap-2 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isPlaying
+                    ? "bg-red-100 text-red-700 hover:bg-red-200"
+                    : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                }`}
+              >
+                {isPlaying ? (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <polygon points="5 3 19 12 5 21" />
+                    </svg>
+                    Play
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="speed"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Speed:
+                </label>
+                <select
+                  id="speed"
+                  value={animationSpeed}
+                  onChange={(e) => setAnimationSpeed(Number(e.target.value))}
+                  className="py-1 px-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="2000">Slow</option>
+                  <option value="1000">Normal</option>
+                  <option value="500">Fast</option>
+                </select>
+              </div>
+
+              {/* Selected country shown beside speed control */}
+              {selectedCountry && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Selected:
+                  </span>
+                  <span className="py-1 px-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-medium text-sm">
+                    {selectedCountry}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

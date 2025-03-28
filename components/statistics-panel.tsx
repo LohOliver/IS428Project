@@ -32,7 +32,7 @@ export default function CovidStatsPanel() {
       try {
         setLoading(true);
         // Fetch data from the API endpoint
-        const response = await fetch('http://localhost:5002/d1_0');
+        const response = await fetch('http://localhost:5002/totals');
         
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
@@ -92,7 +92,7 @@ export default function CovidStatsPanel() {
           value={stats.total_deaths}
           icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
           color="red"
-          secondaryText={`${mortalityRate.toFixed(2)}% mortality rate`}
+
         />
         <StatCard
           title="Estimated Recovered"

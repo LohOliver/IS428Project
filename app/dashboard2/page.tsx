@@ -112,6 +112,7 @@ export default function Dashboard2() {
                     <div className="mb-2 h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-blue-600 mx-auto" />
                     <p>Loading map data...</p>
                   </div>
+    
                 </div>
               ) : (
                 <WorldMap
