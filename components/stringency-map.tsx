@@ -38,6 +38,44 @@ export function WorldMap({
   const initialRenderRef = useRef(true);
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
+  // Create a mapping from country names in our data to country names in the GeoJSON
+  const countryNameMap: { [key: string]: string } = {
+    "United States": "USA",
+
+    "South Korea": "Korea, Republic of",
+    "Côte d'Ivoire ":"Ivory Coast",
+    "Tanzania":"United Republic of Tanzania",
+    "United Kingdom": "England",
+    "Democratic Republic of Congo": "Democratic Republic of the Congo",
+    "Congo": "Republic of the Congo",
+    "South Sudan": "S. Sudan",
+    "Central African Republic": "Central African Rep.",
+    "Cote d'Ivoire": "Côte d'Ivoire",
+    "Bosnia and Herzegovina": "Bosnia and Herz.",
+    "North Macedonia": "Macedonia",
+    "Dominican Republic": "Dominican Rep.",
+    "Equatorial Guinea": "Eq. Guinea"
+    // Add more mappings as needed
+  };
+
+  // Function to get data country name from GeoJSON country name
+  const getDataCountryName = (geoJsonName: string): string => {
+    // Check if we have a direct mapping for this country
+    for (const [dataName, geoName] of Object.entries(countryNameMap)) {
+      if (geoName === geoJsonName) {
+        return dataName;
+      }
+    }
+    // If no mapping exists, return the original name (assuming it might match)
+    return geoJsonName;
+  };
+
+  // Function to get GeoJSON country name from data country name
+  const getGeoJsonCountryName = (dataCountryName: string): string => {
+    // Return the mapped name if it exists
+    return countryNameMap[dataCountryName] || dataCountryName;
+  };
+
   useEffect(() => {
     const loadGeoData = async () => {
       try {
@@ -259,34 +297,41 @@ export function WorldMap({
       .attr("class", "country")
       .attr("d", pathGenerator)
       .attr("fill", (d: any) => {
-        // Handle missing data gracefully
-        const value = currentData[d.properties.name];
+        // Use the mapping to get the correct country name in our data
+        const dataCountryName = getDataCountryName(d.properties.name);
+        const value = currentData[dataCountryName];
         return value !== undefined ? colorScale(value) : "#f1f5f9"; // Light gray for no data
       })
       .attr("stroke", "#94a3b8") // Softer border color
       .attr("stroke-width", 0.5)
       .attr("stroke-opacity", 0.7)
-      .attr("class", (d: any) =>
-        d.properties.name === selectedCountry ? "selected-country country" : "country"
-      )
+      .attr("class", (d: any) => {
+        const dataCountryName = getDataCountryName(d.properties.name);
+        return dataCountryName === selectedCountry ? "selected-country country" : "country";
+      })
       .style("cursor", "pointer")
-      .style("stroke-width", (d: any) =>
-        d.properties.name === selectedCountry ? 2 : 0.5
-      )
-      .style("stroke", (d: any) =>
-        d.properties.name === selectedCountry ? "#f43f5e" : "#94a3b8"
-      )
-      .style("filter", (d: any) =>
-        d.properties.name === selectedCountry ? "url(#drop-shadow)" : "none"
-      )
+      .style("stroke-width", (d: any) => {
+        const dataCountryName = getDataCountryName(d.properties.name);
+        return dataCountryName === selectedCountry ? 2 : 0.5;
+      })
+      .style("stroke", (d: any) => {
+        const dataCountryName = getDataCountryName(d.properties.name);
+        return dataCountryName === selectedCountry ? "#f43f5e" : "#94a3b8";
+      })
+      .style("filter", (d: any) => {
+        const dataCountryName = getDataCountryName(d.properties.name);
+        return dataCountryName === selectedCountry ? "url(#drop-shadow)" : "none";
+      })
       .on("click", (event: any, d: any) => {
-        const countryName = d.properties.name;
-        setSelectedCountry(countryName);
-        onCountryClick(countryName, currentDate);
+        const geoCountryName = d.properties.name;
+        const dataCountryName = getDataCountryName(geoCountryName);
+        setSelectedCountry(dataCountryName);
+        onCountryClick(dataCountryName, currentDate);
       })
       .on("mouseover", (event: any, d: any) => {
-        const countryName = d.properties.name;
-        const value = currentData[countryName] || 0;
+        const geoCountryName = d.properties.name;
+        const dataCountryName = getDataCountryName(geoCountryName);
+        const value = currentData[dataCountryName] || 0;
 
         // Highlight the hovered country
         d3.select(event.target)
@@ -296,7 +341,7 @@ export function WorldMap({
           .style("stroke-width", 1.5)
           .style("stroke", "#0284c7");
 
-        setHoveredCountry(countryName);
+        setHoveredCountry(dataCountryName);
 
         // Enhanced tooltip
         tooltip
@@ -304,7 +349,7 @@ export function WorldMap({
           .style("opacity", 0)
           .html(
             `<div>
-              <strong>${countryName}</strong><br/>
+              <strong>${dataCountryName}</strong><br/>
               <span>Stringency: ${value.toFixed(2)}</span>
             </div>`
           )
@@ -319,18 +364,17 @@ export function WorldMap({
           .style("left", `${event.clientX + 10}px`)
           .style("top", `${event.clientY - 40}px`);
       })
-      .on("mouseout", (event: any) => {
+      .on("mouseout", (event: any, d: any) => {
+        const geoCountryName = d.properties.name;
+        const dataCountryName = getDataCountryName(geoCountryName);
+        
         // Reset country highlight
         d3.select(event.target)
           .transition()
           .duration(200)
           .style("fill-opacity", 1)
-          .style("stroke-width", (d: any) =>
-            d.properties.name === selectedCountry ? 2 : 0.5
-          )
-          .style("stroke", (d: any) =>
-            d.properties.name === selectedCountry ? "#f43f5e" : "#94a3b8"
-          );
+          .style("stroke-width", dataCountryName === selectedCountry ? 2 : 0.5)
+          .style("stroke", dataCountryName === selectedCountry ? "#f43f5e" : "#94a3b8");
 
         setHoveredCountry(null);
 

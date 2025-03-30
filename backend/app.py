@@ -1012,102 +1012,110 @@ def get_avg_stringency_by_month_for_country(country):
 
 @app.route('/max_cases_per_month/<country>', methods=['GET'])
 def get_max_cases_per_month(country):
-    # Query the CovidData table for the selected country
-    max_cases_query = db.session.query(
+
+    # Query the CovidData table to sum new cases by month for the selected country
+    monthly_cases_query = db.session.query(
         extract('year', CovidData.date).label('year'),
         extract('month', CovidData.date).label('month'),
-        func.max(CovidData.total_cases).label('max_total_cases')
+        func.sum(CovidData.new_cases).label('total_new_cases_per_month')
     ).filter(
-        CovidData.location == country
+        CovidData.location == country,
+        CovidData.new_cases.isnot(None)  # Filter out NULL values
     ).group_by(
         extract('year', CovidData.date),
         extract('month', CovidData.date)
     ).all()
 
-    # Process the data to organize maximum cases per month
-    max_cases_per_month = {}
+    # Process the data to organize monthly case totals
+    monthly_cases = {}
 
-    for year, month, max_total_cases in max_cases_query:
-        if year not in max_cases_per_month:
-            max_cases_per_month[year] = {}
-        max_cases_per_month[year][month] = max_total_cases
+    for year, month, total_new_cases in monthly_cases_query:
+        if year not in monthly_cases:
+            monthly_cases[year] = {}
+        # Convert to int for cleaner JSON output
+        monthly_cases[year][month] = int(total_new_cases) if total_new_cases else 0
 
-    return jsonify(max_cases_per_month)
+    return jsonify(monthly_cases)
 
 @app.route('/max_deaths_per_month/<country>', methods=['GET'])
 def get_max_deaths_per_month(country):
-    # Query the CovidData table for the selected country
-    max_deaths_query = db.session.query(
+    # Query the CovidData table to sum new deaths by month for the selected country
+    monthly_deaths_query = db.session.query(
         extract('year', CovidData.date).label('year'),
         extract('month', CovidData.date).label('month'),
-        func.max(CovidData.total_deaths).label('max_total_deaths')
+        func.sum(CovidData.new_deaths).label('total_new_deaths_per_month')
     ).filter(
-        CovidData.location == country
+        CovidData.location == country,
+        CovidData.new_deaths.isnot(None)  # Filter out NULL values
     ).group_by(
         extract('year', CovidData.date),
         extract('month', CovidData.date)
     ).all()
 
-    # Process the data to organize maximum deaths per month
-    max_deaths_per_month = {}
+    # Process the data to organize monthly death totals
+    monthly_deaths = {}
 
-    for year, month, max_total_deaths in max_deaths_query:
-        if year not in max_deaths_per_month:
-            max_deaths_per_month[year] = {}
-        max_deaths_per_month[year][month] = max_total_deaths
+    for year, month, total_new_deaths in monthly_deaths_query:
+        if year not in monthly_deaths:
+            monthly_deaths[year] = {}
+        # Convert to int for cleaner JSON output
+        monthly_deaths[year][month] = int(total_new_deaths) if total_new_deaths else 0
 
-    return jsonify(max_deaths_per_month)
+    return jsonify(monthly_deaths)
 
 @app.route('/max_recovered_per_month/<country>', methods=['GET'])
 def get_max_recovered_per_month(country):
-    # Query the CovidData table for max total cases and deaths to estimate recovery
-    recovery_query = db.session.query(
+    # For recovered cases, we'll estimate as (new cases - new deaths)
+    # This is a simplification but provides a reasonable estimate
+    monthly_recovered_query = db.session.query(
         extract('year', CovidData.date).label('year'),
         extract('month', CovidData.date).label('month'),
-        func.max(CovidData.total_cases - CovidData.total_deaths).label('max_recovered')
+        func.sum(CovidData.new_cases - CovidData.new_deaths).label('total_new_recovered_per_month')
     ).filter(
         CovidData.location == country,
-        CovidData.total_cases.isnot(None),
-        CovidData.total_deaths.isnot(None)
+        CovidData.new_cases.isnot(None),
+        CovidData.new_deaths.isnot(None)
     ).group_by(
         extract('year', CovidData.date),
         extract('month', CovidData.date)
     ).all()
 
-    # Process the data to organize maximum estimated recoveries per month
-    max_recovered_per_month = {}
+    # Process the data to organize monthly recovered totals
+    monthly_recovered = {}
 
-    for year, month, max_recovered in recovery_query:
-        if year not in max_recovered_per_month:
-            max_recovered_per_month[year] = {}
-        max_recovered_per_month[year][month] = max_recovered
+    for year, month, total_new_recovered in monthly_recovered_query:
+        if year not in monthly_recovered:
+            monthly_recovered[year] = {}
+        # Ensure we don't have negative values and convert to int
+        monthly_recovered[year][month] = max(0, int(total_new_recovered)) if total_new_recovered else 0
 
-    return jsonify(max_recovered_per_month)
+    return jsonify(monthly_recovered)
 
 @app.route('/max_vaccinations_per_month/<country>', methods=['GET'])
 def get_max_vaccinations_per_month(country):
-    # Query the CovidData table for the selected country
-    max_vaccinations_query = db.session.query(
+    # Query the CovidData table to sum new vaccinations by month for the selected country
+    monthly_vaccinations_query = db.session.query(
         extract('year', CovidData.date).label('year'),
         extract('month', CovidData.date).label('month'),
-        func.max(CovidData.people_fully_vaccinated).label('max_vaccinations')
+        func.sum(CovidData.new_vaccinations).label('total_new_vaccinations_per_month')
     ).filter(
         CovidData.location == country,
-        CovidData.people_fully_vaccinated.isnot(None)
+        CovidData.new_vaccinations.isnot(None)  # Filter out NULL values
     ).group_by(
         extract('year', CovidData.date),
         extract('month', CovidData.date)
     ).all()
 
-    # Process the data to organize maximum vaccinations per month
-    max_vaccinations_per_month = {}
+    # Process the data to organize monthly vaccination totals
+    monthly_vaccinations = {}
 
-    for year, month, max_vaccinations in max_vaccinations_query:
-        if year not in max_vaccinations_per_month:
-            max_vaccinations_per_month[year] = {}
-        max_vaccinations_per_month[year][month] = max_vaccinations
+    for year, month, total_new_vaccinations in monthly_vaccinations_query:
+        if year not in monthly_vaccinations:
+            monthly_vaccinations[year] = {}
+        # Convert to int for cleaner JSON output
+        monthly_vaccinations[year][month] = int(total_new_vaccinations) if total_new_vaccinations else 0
 
-    return jsonify(max_vaccinations_per_month)
+    return jsonify(monthly_vaccinations)
 
 #========================= Covid dashboard 3 ===============================
 @app.route('/continent_vs_population', methods=['GET'])
