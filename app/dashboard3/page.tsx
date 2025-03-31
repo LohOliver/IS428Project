@@ -2,10 +2,10 @@
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
-import ContinentPopulationBar from "@/components/continent-population-bar";
-import HospitalBedsBar from "@/components/hospitals-bed-bar";
-import BedsVsDeathsScatter from "@/components/beds-deaths-scatter";
-import HygieneVsCasesScatter from "@/components/hygiene-cases-scatter";
+import ContinentPopulationBar from "@/components/dashboard3/continent-population-bar";
+import HospitalBedsBar from "@/components/dashboard3/hospitals-bed-bar";
+import BedsVsDeathsScatter from "@/components/dashboard3/beds-deaths-scatter";
+import HygieneVsCasesScatter from "@/components/dashboard3/hygiene-cases-scatter";
 
 export default function Dashboard3() {
   return (

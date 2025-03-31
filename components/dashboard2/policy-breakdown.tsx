@@ -128,7 +128,7 @@ export function PolicyBreakdown({
       .select(chartRef.current)
       .append("svg")
       .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
+      .attr("height", height + margin.top + margin.bottom+200)
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -152,9 +152,9 @@ export function PolicyBreakdown({
       .style("text-anchor", "end")
       .attr("dx", "-0.8em")
       .attr("dy", "0.15em")
-      .attr("transform", "rotate(-45)");
+      .attr("transform", "rotate(-45)").attr("font-size", "20px");
 
-    svg.append("g").call(d3.axisLeft(y));
+    svg.append("g").call(d3.axisLeft(y)).attr("font-size", "20px");;
 
     // Only append bars for items with count > 0
     svg

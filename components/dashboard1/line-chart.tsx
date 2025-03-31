@@ -1,26 +1,35 @@
 import React, { useEffect, useState, useRef } from "react";
 import * as d3 from "d3";
 
-const ContinentCasesChart = ({ dataType = 'cases' }) => {
-  const [data, setData] = useState(null);
+// Define the valid data types as a type
+type DataType = 'cases' | 'deaths' | 'recovered' | 'vaccinated';
+
+interface ContinentCasesChartProps {
+  dataType?: DataType;
+}
+
+const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "cases" }) => {
+  type DataResponse = Record<string, Record<string, number>>;
+  
+  const [data, setData] = useState<DataResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const chartRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement | null>(null);
 
   // Define endpoints based on data type
-  const endpoints = {
+  const endpoints: Record<DataType, string> = {
     cases: "http://localhost:5002/continents_new_cases_per_month",
     deaths: "http://localhost:5002/continents_new_deaths_per_month",
     recovered: "http://localhost:5002/continents_estimated_recoveries_per_month",
-    vaccinated: "http://localhost:5002/continents_new_vaccinations_per_month"
+    vaccinated: "http://localhost:5002/continents_new_vaccinations_per_month",
   };
 
   // Y-axis labels based on data type
-  const yAxisLabels = {
+  const yAxisLabels: Record<DataType, string> = {
     cases: "New COVID-19 Cases",
     deaths: "New COVID-19 Deaths",
     recovered: "Estimated Recoveries",
-    vaccinated: "New Vaccinations"
+    vaccinated: "New Vaccinations",
   };
 
   useEffect(() => {
@@ -38,7 +47,7 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
         setLoading(false);
       } catch (err) {
         console.error("Error fetching data:", err);
-        setError(err.message || "Failed to load data");
+        setError(err instanceof Error ? err.message : "Failed to load data");
         setLoading(false);
       }
     };
@@ -56,9 +65,16 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
     // Clear previous chart
     d3.select(chartRef.current).selectAll("*").remove();
 
+    // Define interface for processed data items
+    interface ProcessedDataItem {
+      date: Date;
+      continent: string;
+      value: number;
+    }
+
     // Process data
-    const processedData = [];
-    Object.entries(data).forEach(([continent, monthlyData]) => {
+    const processedData: ProcessedDataItem[] = [];
+    Object.entries(data as Record<string, Record<string, number>>).forEach(([continent, monthlyData]) => {
       Object.entries(monthlyData).forEach(([dateStr, value]) => {
         const [year, month] = dateStr.split("-").map(Number);
         const date = new Date(year, month - 1);
@@ -75,8 +91,9 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
     processedData.sort((a, b) => a.date.getTime() - b.date.getTime());
 
     // Set up dimensions
-    const margin = { top: 40, right: 80, bottom: 60, left: 80 };
-    const width = chartRef.current.clientWidth - margin.left - margin.right;
+    const margin = { top: 40, right: 100, bottom: 80, left: 100 };
+    // Add null check for chartRef.current
+    const width = (chartRef.current?.clientWidth || 600) - margin.left - margin.right;
     const height = 500 - margin.top - margin.bottom; // Increased from 320 to 500
 
     // Create SVG
@@ -96,63 +113,69 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
       (a, b) => a.getTime() - b.getTime()
     );
 
-    // Create scales
+    // Create scales with proper type handling
     const xScale = d3
       .scaleTime()
-      .domain(d3.extent(processedData, (d) => d.date))
+      .domain(d3.extent(processedData, (d) => d.date) as [Date, Date])
       .range([0, width]);
 
     const yScale = d3
       .scaleLinear()
-      .domain([0, d3.max(processedData, (d) => d.value)])
+      .domain([0, d3.max(processedData, (d) => d.value) || 0])
       .range([height, 0])
       .nice();
 
     // Create color scale
     const colorScale = d3
-      .scaleOrdinal()
+      .scaleOrdinal<string>()
       .domain(continents)
       .range(d3.schemeCategory10);
 
-    // Create line generator
+    // Create line generator with proper typing
     const lineGenerator = d3
-      .line()
+      .line<ProcessedDataItem>()
       .x((d) => xScale(d.date))
       .y((d) => yScale(d.value))
       .curve(d3.curveMonotoneX);
 
-    // Add X axis
+    // Add X axis with proper type handling
     svg
       .append("g")
       .attr("transform", `translate(0,${height})`)
       .call(
-        d3
-          .axisBottom(xScale)
+        d3.axisBottom(xScale)
           .ticks(d3.timeMonth.every(3))
-          .tickFormat((d) => d3.timeFormat("%b %Y")(d))
+          .tickFormat((d) => d3.timeFormat("%b %Y")(d as Date))
       )
       .selectAll("text")
       .style("text-anchor", "end")
+      .style("font-size", "16px")  // Increased font size for X axis
       .attr("dx", "-.8em")
       .attr("dy", ".15em")
       .attr("transform", "rotate(-45)");
 
     // Add Y axis with formatted ticks (K for thousands, M for millions)
-    svg.append("g").call(
-      d3.axisLeft(yScale).tickFormat((d) => {
-        if (d >= 1000000) return `${(d / 1000000).toFixed(1)}M`;
-        if (d >= 1000) return `${(d / 1000).toFixed(0)}K`;
-        return d;
-      })
-    );
+    svg.append("g")
+      .call(
+        d3.axisLeft(yScale).tickFormat((d) => {
+          const value = d as number;
+          if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+          if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+          return value.toString();
+        })
+      )
+      .selectAll("text")
+      .style("font-size", "16px");  // Increased font size for Y axis
 
-    // Add axis labels
+    // Add axis labels with increased font size
     svg
       .append("text")
       .attr("class", "x-axis-label")
       .attr("text-anchor", "middle")
       .attr("x", width / 2)
-      .attr("y", height + margin.bottom - 10)
+      .attr("y", height + margin.bottom)
+      .style("font-size", "16px")  // Increased font size for axis label
+      .style("font-weight", "bold")  // Make it bold for better visibility
       .text("Date");
 
     svg
@@ -162,6 +185,8 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
       .attr("transform", "rotate(-90)")
       .attr("x", -height / 2)
       .attr("y", -margin.left + 20)
+      .style("font-size", "16px")  // Increased font size for axis label
+      .style("font-weight", "bold")  // Make it bold for better visibility
       .text(yAxisLabels[dataType]);
 
     // Draw lines for each continent
@@ -185,7 +210,7 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
       }
     });
 
-    // Add legend
+    // Add legend with increased text size
     const legend = svg
       .append("g")
       .attr("class", "legend")
@@ -194,20 +219,20 @@ const ContinentCasesChart = ({ dataType = 'cases' }) => {
     continents.forEach((continent, i) => {
       const legendRow = legend
         .append("g")
-        .attr("transform", `translate(0, ${i * 20})`);
+        .attr("transform", `translate(0, ${i * 25})`);  // Increased spacing between items
 
       legendRow
         .append("rect")
-        .attr("width", 10)
-        .attr("height", 10)
+        .attr("width", 12)  // Slightly larger rectangle
+        .attr("height", 12)
         .attr("fill", colorScale(continent));
 
       legendRow
         .append("text")
-        .attr("x", 15)
+        .attr("x", 20)  // Increased spacing after the color box
         .attr("y", 10)
         .attr("text-anchor", "start")
-        .style("font-size", "12px")
+        .style("font-size", "13px")  // Increased font size for legend
         .text(continent);
     });
   };

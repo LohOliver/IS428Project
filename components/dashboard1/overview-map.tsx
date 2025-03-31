@@ -124,13 +124,13 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
           "United Kingdom of Great Britain and Northern Ireland",
         "Democratic Republic of Congo": "Dem. Rep. Congo",
         "South Sudan": "S. Sudan",
-        "Central African Republic":"Central African Rep.",
-        "Cote d'Ivoire":"Côte d'Ivoire",
-        "Bosnia and Herzegovina":"Bosnia and Herz.",
-        "North Macedonia":"Macedonia",
-        "Dominican Republic":"Dominican Rep.",
+        "Central African Republic": "Central African Rep.",
+        "Cote d'Ivoire": "Côte d'Ivoire",
+        "Bosnia and Herzegovina": "Bosnia and Herz.",
+        "North Macedonia": "Macedonia",
+        "Dominican Republic": "Dominican Rep.",
 
-        "Equatorial Guinea":"Eq. Guinea"
+        "Equatorial Guinea": "Eq. Guinea",
         // Add more mappings as needed
       };
 
@@ -167,8 +167,8 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       );
 
       // Create a color scale (log scale works better for this kind of data)
-      const colorScale = d3
-        .scaleLog()
+      const colorScale: d3.ScaleLogarithmic<string, string> = d3
+        .scaleLog<string>()
         .domain([10, maxValue])
         .range(getColorRangeForDataType(dataType))
         .clamp(true);

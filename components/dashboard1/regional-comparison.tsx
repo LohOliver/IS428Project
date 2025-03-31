@@ -1,7 +1,6 @@
 "use client"
-import { useState, useEffect, useMemo } from "react"
-import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { useState, useEffect, useMemo, useRef } from "react"
+import * as d3 from "d3"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2 } from "lucide-react"
 
@@ -21,16 +20,8 @@ interface RegionalComparisonProps {
 }
 
 function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: RegionalComparisonProps) {
-  // Sort data by the selected metric in descending order and take top 10
-  const sortedData = useMemo(() => {
-    return [...data]
-      .sort((a, b) => {
-        const valueA = a[dataKey] || 0
-        const valueB = b[dataKey] || 0
-        return valueB - valueA
-      })
-      .slice(0, 10) // Take only top 10
-  }, [data, dataKey])
+  const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   
   // Format numbers for display
   const formatNumber = (value: number) => {
@@ -43,56 +34,159 @@ function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: R
   const getColor = () => {
     switch (dataKey) {
       case "cases":
-        return "hsl(var(--chart-1))"
+        return "#7856ff" // hsl(var(--chart-1))
       case "deaths":
-        return "hsl(var(--chart-2))"
+        return "#ec4899" // hsl(var(--chart-2))
       case "recovered":
-        return "hsl(var(--chart-3))"
+        return "#10b981" // hsl(var(--chart-3))
       case "vaccinated":
-        return "hsl(var(--chart-4))"
+        return "#0ea5e9" // hsl(var(--chart-4))
       default:
-        return "hsl(var(--chart-1))"
+        return "#7856ff" // hsl(var(--chart-1))
     }
   }
-  
+
+  // Create and update the D3 visualization
+  useEffect(() => {
+    if (!svgRef.current || !containerRef.current || data.length === 0) return
+
+    // Clear any existing visualization
+    d3.select(svgRef.current).selectAll("*").remove()
+
+    // Get container dimensions
+    const containerWidth = containerRef.current.clientWidth
+    const containerHeight = 400
+    
+    // Define margins
+    const margin = { top: 20, right: 30, left: 100, bottom: 20 }
+    const width = containerWidth - margin.left - margin.right
+    const height = containerHeight - margin.top - margin.bottom
+
+    // Create SVG
+    const svg = d3.select(svgRef.current)
+      .attr("width", containerWidth)
+      .attr("height", containerHeight)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`)
+
+    // Sort data by the selected metric in descending order and take top 10
+    const sortedData = [...data]
+      .sort((a, b) => {
+        const valueA = a[dataKey] || 0
+        const valueB = b[dataKey] || 0
+        return valueB - valueA
+      })
+      .slice(0, 10)
+
+    // Create scales
+    const x = d3.scaleLinear()
+      .domain([0, d3.max(sortedData, d => d[dataKey] || 0) as number])
+      .range([0, width])
+    
+    const y = d3.scaleBand()
+      .domain(sortedData.map(d => d.name))
+      .range([0, height])
+      .padding(0.1)
+
+    // Create axes
+    const xAxis = d3.axisBottom(x)
+      .tickFormat(d => formatNumber(d as number))
+      .ticks(5)
+    
+    const yAxis = d3.axisLeft(y)
+      .tickSize(0)
+    
+    // Add X axis
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(xAxis)
+      .selectAll("text")
+      .attr("font-size", "16px")
+    
+    // Add Y axis
+    svg.append("g")
+      .call(yAxis)
+      .selectAll("text")
+      .attr("font-size", "16px")
+    
+    // Add grid lines
+    svg.append("g")
+      .attr("class", "grid")
+      .attr("opacity", 0.3)
+      .call(d3.axisBottom(x)
+        .tickSize(height)
+        .tickFormat(() => "")
+        .ticks(5)
+      )
+      .selectAll("line")
+      .attr("stroke-dasharray", "3,3")
+    
+    // Add bars
+    const bars = svg.selectAll(".bar")
+      .data(sortedData)
+      .enter()
+      .append("rect")
+      .attr("class", "bar")
+      .attr("y", d => y(d.name) || 0)
+      .attr("height", y.bandwidth())
+      .attr("x", 0)
+      .attr("width", d => x(d[dataKey] || 0))
+      .attr("fill", getColor())
+      .attr("rx", 0)
+      .attr("ry", 0)
+      .attr("cursor", "pointer")
+      .attr("stroke", d => d.name === selectedRegion ? "#000" : "none")
+      .attr("stroke-width", d => d.name === selectedRegion ? 2 : 0)
+      .on("click", (event, d) => {
+        onRegionSelect(d.name)
+      })
+    
+    // Create tooltip
+    const tooltip = d3.select(containerRef.current)
+      .append("div")
+      .attr("class", "tooltip")
+      .style("position", "absolute")
+      .style("visibility", "hidden")
+      .style("background-color", "white")
+      .style("border", "1px solid #ccc")
+      .style("border-radius", "4px")
+      .style("padding", "8px")
+      .style("box-shadow", "0 2px 5px rgba(0,0,0,0.1)")
+      .style("pointer-events", "none")
+      .style("font-size", "12px")
+    
+    // Add tooltip events
+    bars
+      .on("mouseover", (event, d) => {
+        tooltip
+          .style("visibility", "visible")
+          .html(`
+            <div>
+              <div><strong>${d.name}</strong></div>
+              <div>${dataKey}: ${(d[dataKey] || 0).toLocaleString()}</div>
+            </div>
+          `)
+      })
+      .on("mousemove", (event) => {
+        tooltip
+          .style("top", `${event.pageY - 10}px`)
+          .style("left", `${event.pageX + 10}px`)
+      })
+      .on("mouseout", () => {
+        tooltip.style("visibility", "hidden")
+      })
+
+    // Clean up function
+    return () => {
+      d3.select(containerRef.current).select(".tooltip").remove()
+    }
+  }, [data, dataKey, selectedRegion, onRegionSelect])
+
   return (
-    <div className="w-full pt-4">
-      <ChartContainer
-        config={{
-          [dataKey]: {
-            label: dataKey.charAt(0).toUpperCase() + dataKey.slice(1),
-            color: getColor(),
-          },
-        }}
-        className="h-[400px]"
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={sortedData}
-            layout="vertical"
-            margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-            onClick={(data) => {
-              if (data && data.activePayload && data.activePayload[0]) {
-                const clickedRegion = data.activePayload[0].payload.name
-                onRegionSelect(clickedRegion)
-              }
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" tickFormatter={formatNumber} tick={{ fontSize: 12 }} />
-            <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 12 }} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar
-              dataKey={dataKey}
-              fill={getColor()}
-              radius={[0, 4, 4, 0]}
-              cursor="pointer"
-              strokeWidth={selectedRegion ? 2 : 0}
-              stroke={(entry) => entry.name === selectedRegion ? "#000" : undefined}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartContainer>
+    <div className="w-full pt-4" ref={containerRef}>
+      <div className="h-[400px] w-full">
+        <svg ref={svgRef} className="w-full h-full"></svg>
+      </div>
     </div>
   )
 }
