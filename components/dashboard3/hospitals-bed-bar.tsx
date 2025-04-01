@@ -4,7 +4,11 @@ import { useEffect, useRef } from "react"
 import * as d3 from "d3"
 import continentColorMap from "./continent-colour-map"
 
-export default function HospitalBedsBar() {
+interface ContinentPopulationBarProps {
+  selectedRegion: string | null;
+}
+
+export default function HospitalBedsBar({ selectedRegion }: ContinentPopulationBarProps) {
   const ref = useRef(null)
 
   useEffect(() => {

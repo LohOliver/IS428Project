@@ -1,18 +1,24 @@
 "use client";
 import * as React from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
 import ContinentPopulationBar from "@/components/dashboard3/continent-population-bar";
 import HospitalBedsBar from "@/components/dashboard3/hospitals-bed-bar";
 import BedsVsDeathsScatter from "@/components/dashboard3/beds-deaths-scatter";
 import HygieneVsCasesScatter from "@/components/dashboard3/hygiene-cases-scatter";
+import RegionFilter from "@/components/dashboard3/RegionFilter";
 
 export default function Dashboard3() {
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const regions = ["Asia", "Europe", "Africa", "North America", "South America", "Oceania"];
   return (
     <div className="flex min-h-screen flex-col">
       {/* Navbar */}
       <DashboardNavbar />
 
+      {/* Filter */}
+      <RegionFilter regions={regions} selectedRegion={selectedRegion} onSelectRegion={setSelectedRegion} />
       {/* Page Content */}
       <main className="flex-1 space-y-4 p-4 md:p-6">
         <h1 className="text-3xl font-bold">
@@ -21,20 +27,20 @@ export default function Dashboard3() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-4 rounded shadow">
-            <ContinentPopulationBar />
+            <ContinentPopulationBar selectedRegion={selectedRegion}/>
           </div>
           <div className="bg-white p-4 rounded shadow">
-            <HospitalBedsBar />
+            <HospitalBedsBar selectedRegion={selectedRegion}/>
           </div>
         </div>
 
         {/* Row 2: Scatter Plots */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-4 rounded shadow">
-            <BedsVsDeathsScatter />
+            <BedsVsDeathsScatter selectedRegion={selectedRegion}/>
           </div>
           <div className="bg-white p-4 rounded shadow">
-            <HygieneVsCasesScatter />
+            <HygieneVsCasesScatter selectedRegion={selectedRegion}/>
           </div>
         </div>
 

@@ -269,7 +269,7 @@ def get_total_deaths_by_country():
     # Query to get the maximum total deaths for each country
     max_total_deaths_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.total_deaths)
+        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases))
     ).group_by(
         CovidData.location
     ).filter(
@@ -277,7 +277,7 @@ def get_total_deaths_by_country():
     ).all()
     
     # Format the result as a dictionary
-    result = {location: int(max_deaths) if max_deaths else 0 for location, max_deaths in max_total_deaths_query}
+    result = {location: max_deaths for location, max_deaths in max_total_deaths_query}
     
     return jsonify(result)
 
