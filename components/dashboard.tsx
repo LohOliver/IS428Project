@@ -7,13 +7,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import StatisticsPanel from "./statistics-panel";
+import StatisticsPanel from "./dashboard1/statistics-panel";
 import { fetchCovidData } from "@/lib/api";
 import type { CovidData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { DashboardNavbar } from "../components/ui/navbar";
-import CovidWorldMap, { CovidDataType } from "../components/overview-map";
+import CovidWorldMap, { CovidDataType } from "./dashboard1/overview-map";
 import {
   Bar,
   BarChart,
@@ -27,7 +27,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import ContinentCasesChart from "../components/line-chart";
+import ContinentCasesChart from "./dashboard1/line-chart";
 
 // Define types
 interface RegionalData {
@@ -321,9 +321,9 @@ export default function Dashboard() {
           </Card>
 
           {/* Charts section - Bar chart and Line chart side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[750px]">
             {/* Bar Chart */}
-            <Card className="overflow-hidden">
+            <Card >
               <CardHeader>
                 <CardTitle>Top 10 Countries</CardTitle>
                 <CardDescription>
@@ -332,7 +332,7 @@ export default function Dashboard() {
               </CardHeader>
 
               <CardContent>
-                <div className="overflow-hidden w-2/3 ">
+                <div className=" ">
                   <RegionalComparison
                     data={regionalData}
                     dataKey={dataType}
@@ -344,7 +344,7 @@ export default function Dashboard() {
             </Card>
 
             {/* Line Chart */}
-            <Card className="overflow-hidden">
+            <Card className="">
               <CardHeader>
                 <CardTitle>Continent Trends</CardTitle>
                 <CardDescription>
@@ -353,7 +353,7 @@ export default function Dashboard() {
               </CardHeader>
 
               <CardContent>
-                <div className="h-[400px]">
+                <div className="h-[700px]">
                   <ContinentCasesChart dataType={dataType} />
                 </div>
               </CardContent>

@@ -4,16 +4,12 @@ import { useEffect, useRef } from "react"
 import * as d3 from "d3"
 import continentColorMap from "./continent-colour-map"
 
-export default function HandwashingScatter() {
+export default function HospitalBedsScatter() {
   const ref = useRef(null)
-
-  const colorScale = d3.scaleOrdinal<string>()
-  .domain(["Africa", "Asia", "Europe", "North America", "South America", "Oceania"])
-  .range(["#60a5fa", "#f59e0b", "#10b981", "#ef4444", "#a855f7", "#6b7280"])
-
+  
 
   useEffect(() => {
-    fetch("http://localhost:5002/handwashing_facilities_vs_cases")
+    fetch("http://localhost:5002/hospital_beds_vs_death_rate")
     .then((res) => res.json())
       .then((data: any[]) => {
         const margin = { top: 50, right: 30, bottom: 50, left: 70 }
@@ -21,11 +17,6 @@ export default function HandwashingScatter() {
         const height = 300 - margin.top - margin.bottom
 
         d3.select(ref.current).selectAll("svg").remove()
-
-        //To adjust the plot sizes
-        const rScale = d3.scaleSqrt()
-          .domain([0, d3.max(data, d => d.avg_total_cases_per_million)!])
-          .range([6, 25])
 
         const svg = d3
           .select(ref.current)
@@ -35,30 +26,29 @@ export default function HandwashingScatter() {
           .append("g")
           .attr("transform", `translate(${margin.left},${margin.top})`)
 
-        const filteredData = data.filter((d) => d.continent && d.avg_handwashing_facilities && d.avg_total_cases_per_million)
+        const filtered = data.filter(d => d.continent && d.avg_beds && d.avg_deaths)
 
         const x = d3
           .scaleLinear()
-          .domain([0, d3.max(filteredData, (d) => d.avg_handwashing_facilities)! * 1.1])
+          .domain([0, d3.max(filtered, d => d.avg_beds)! * 1.1])
           .range([0, width])
 
         const y = d3
           .scaleLinear()
-          .domain([0, d3.max(filteredData, (d) => d.avg_total_cases_per_million)! * 1.1])
+          .domain([0, d3.max(filtered, d => d.avg_deaths)! * 1.1])
           .range([height, 0])
 
-        svg
-          .selectAll("circle")
-          .data(filteredData)
+        svg.selectAll("circle")
+          .data(filtered)
           .enter()
           .append("circle")
-          .attr("cx", (d) => x(d.avg_handwashing_facilities))
-          .attr("cy", (d) => y(d.avg_total_cases_per_million))
-          .attr("r", d => rScale(d.avg_total_cases_per_million))
-          .attr("fill", (d) => continentColorMap[d.continent])
+          .attr("cx", d => x(d.avg_beds))
+          .attr("cy", d => y(d.avg_deaths))
+          .attr("r", 10)
+          .attr("fill", d => continentColorMap[d.continent])
           .attr("opacity", 0.8)
           .on("mouseover", function (event, d) {
-            const tooltip = d3.select("body").append("div")
+            d3.select("body").append("div")
               .attr("class", "tooltip")
               .style("position", "absolute")
               .style("background", "white")
@@ -69,8 +59,8 @@ export default function HandwashingScatter() {
               .style("font-size", "14px")
               .html(
                 `<strong>Continent:</strong> ${d.continent}<br/>
-                <strong>Avg. Handwashing Facilities:</strong> ${d.avg_handwashing_facilities.toFixed(2)}<br/>
-                <strong>Avg. Total Cases Per Million:</strong> ${d3.format(",")(d.avg_total_cases_per_million)}`
+                <strong>Avg. Total Deaths Per Million:</strong> ${d3.format(",")(d.avg_deaths)}<br/>
+                <strong>Hospital Beds Per Thousand:</strong> ${d.avg_beds.toFixed(3)}`
               )
               .style("left", `${event.pageX + 10}px`)
               .style("top", `${event.pageY - 40}px`)
@@ -87,14 +77,14 @@ export default function HandwashingScatter() {
           .attr("x", width / 2)
           .attr("y", height + 40)
           .attr("text-anchor", "middle")
-          .text("Avg. Handwashing Facilities")
+          .text("Avg. Hospital Beds Per Thousand")
 
         svg.append("text")
           .attr("transform", "rotate(-90)")
           .attr("x", -height / 2)
           .attr("y", -50)
           .attr("text-anchor", "middle")
-          .text("Avg. Total Cases Per Million")
+          .text("Avg. Total Deaths Per Million")
 
         // Title
         svg.append("text")
@@ -103,7 +93,7 @@ export default function HandwashingScatter() {
           .attr("text-anchor", "middle")
           .style("font-size", "16px")
           .style("font-weight", "bold")
-          .text("Handwashing Facilities vs Cases")
+          .text("Hospital Beds vs Death Rate")
       })
   }, [])
 

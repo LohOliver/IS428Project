@@ -1,9 +1,9 @@
 "use client";
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WorldMap } from "../../components/stringency-map";
-import { TimeSeriesChart } from "../../components/time-series-chart";
-import { PolicyBreakdown } from "../../components/policy-breakdown";
+import { WorldMap } from "../../components/dashboard2/stringency-map";
+import { TimeSeriesChart } from "../../components/dashboard2/time-series-chart";
+import { PolicyBreakdown } from "../../components/dashboard2/policy-breakdown";
 import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
 
 // Define the interfaces for our data types
@@ -116,7 +116,7 @@ export default function Dashboard2() {
                 </div>
               ) : (
                 <WorldMap
-                  className="aspect-[6/2] w-full"
+                  className="aspect-[4/2] w-full"
                   onCountryClick={handleCountryClick}
                   timeSeriesData={stringencyData}
                   availableDates={availableDates}
@@ -127,7 +127,7 @@ export default function Dashboard2() {
           </Card>
         </div>
         
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 h-[700px]">
           <Card>
             <CardHeader>
               <CardTitle>Stringency Evolution: {selectedCountry}</CardTitle>
@@ -148,7 +148,7 @@ export default function Dashboard2() {
             </CardHeader>
             <CardContent>
               <PolicyBreakdown
-                className="h-[400px]"
+                className="h-[600px]"
                 country={selectedCountry}
                 countryName={selectedCountry}
                 selectedDate={selectedDate}
