@@ -127,6 +127,51 @@ class MeasuresData(db.Model):
     def to_dict(self):
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
+class PolicyData(db.Model):
+    __tablename__ = 'policy_data'
+
+    unique_id = db.Column(db.String(255), primary_key=True)
+    authorizing_level_of_government = db.Column(db.String(255), nullable=True)
+    authorizing_country_name = db.Column(db.String(255), nullable=True)
+    authorizing_country_iso = db.Column(db.String(10), nullable=True)
+    authorizing_state_province = db.Column(db.String(255), nullable=True)
+    authorizing_local_area = db.Column(db.String(255), nullable=True)
+    authorizing_local_area_code = db.Column(db.String(50), nullable=True)
+    authorizing_role = db.Column(db.String(255), nullable=True)
+    authorizing_body = db.Column(db.String(255), nullable=True)
+    name_of_official = db.Column(db.String(255), nullable=True)
+    affected_level_of_government = db.Column(db.String(255), nullable=True)
+    affected_country_name = db.Column(db.String(255), nullable=True)
+    affected_country_iso = db.Column(db.String(10), nullable=True)
+    affected_state_province = db.Column(db.String(255), nullable=True)
+    affected_local_area = db.Column(db.String(255), nullable=True)
+    affected_local_area_code = db.Column(db.String(50), nullable=True)
+    policy_relaxing_or_restricting = db.Column(db.String(255), nullable=True)
+    policy_category = db.Column(db.String(255), nullable=True)
+    policy_subcategory = db.Column(db.String(255), nullable=True)
+    policy_target = db.Column(db.String(255), nullable=True)
+    policy_description = db.Column(db.Text, nullable=True)
+    issued_date = db.Column(db.Date, nullable=True)
+    effective_start_date = db.Column(db.Date, nullable=True)
+    anticipated_end_date = db.Column(db.Date, nullable=True)
+    actual_end_date = db.Column(db.Date, nullable=True)
+    intended_duration = db.Column(db.String(50), nullable=True)
+    prior_row_id_linked = db.Column(db.String(255), nullable=True)
+    data_source_for_policy_announcement = db.Column(db.String(255), nullable=True)
+    policy_law_name = db.Column(db.String(255), nullable=True)
+    policy_law_type = db.Column(db.String(255), nullable=True)
+    data_source_for_law_policy = db.Column(db.String(255), nullable=True)
+    pdf_file_name = db.Column(db.String(255), nullable=True)
+    attachment_for_policy = db.Column(db.String(255), nullable=True)
+    policy_number = db.Column(db.String(255), nullable=True)
+    authorizing_entity_has_authority = db.Column(db.Boolean, nullable=True)
+    relevant_authority = db.Column(db.String(255), nullable=True)
+    data_source_for_authority = db.Column(db.String(255), nullable=True)
+    home_rule_state = db.Column(db.Boolean, nullable=True)
+    dillons_rule_state = db.Column(db.Boolean, nullable=True)
+
+    def to_dict(self):
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 @app.route("/health")
 def health_check():
@@ -1166,6 +1211,11 @@ def get_handwashing_facilities_vs_cases():
               for continent, avg_handwashing_facilities, avg_total_cases_per_million in avg_handwashing_and_cases]
 
     return jsonify(result)
+
+@app.route('/policies', methods=['GET'])
+def get_policies_data():
+    data = PolicyData.query.limit(10).all()
+    return jsonify([entry.to_dict() for entry in data])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)
