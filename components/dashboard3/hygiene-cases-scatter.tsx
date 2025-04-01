@@ -7,7 +7,7 @@ import continentColorMap from "./continent-colour-map"
 export default function HandwashingScatter() {
   const ref = useRef(null)
 
-  const colorScale = d3.scaleOrdinal<string>()
+  d3.scaleOrdinal<string>()
   .domain(["Africa", "Asia", "Europe", "North America", "South America", "Oceania"])
   .range(["#60a5fa", "#f59e0b", "#10b981", "#ef4444", "#a855f7", "#6b7280"])
 
@@ -23,9 +23,9 @@ export default function HandwashingScatter() {
         d3.select(ref.current).selectAll("svg").remove()
 
         //To adjust the plot sizes
-        const rScale = d3.scaleSqrt()
-          .domain([0, d3.max(data, d => d.avg_total_cases_per_million)!])
-          .range([6, 25])
+        // const rScale = d3.scaleSqrt()
+        //   .domain([0, d3.max(data, d => d.avg_total_cases_per_million)!])
+        //   .range([6, 25])
 
         const svg = d3
           .select(ref.current)
@@ -54,7 +54,7 @@ export default function HandwashingScatter() {
           .append("circle")
           .attr("cx", (d) => x(d.avg_handwashing_facilities))
           .attr("cy", (d) => y(d.avg_total_cases_per_million))
-          .attr("r", d => rScale(d.avg_total_cases_per_million))
+          .attr("r", 10)
           .attr("fill", (d) => continentColorMap[d.continent])
           .attr("opacity", 0.8)
           .on("mouseover", function (event, d) {

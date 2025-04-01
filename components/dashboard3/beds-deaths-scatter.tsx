@@ -18,11 +18,6 @@ export default function HospitalBedsScatter() {
 
         d3.select(ref.current).selectAll("svg").remove()
 
-        //To adjust the plot sizes
-        const rScale = d3.scaleSqrt()
-          .domain([0, d3.max(data, d => d.avg_deaths)!])
-          .range([6, 25])
-
         const svg = d3
           .select(ref.current)
           .append("svg")
@@ -49,7 +44,7 @@ export default function HospitalBedsScatter() {
           .append("circle")
           .attr("cx", d => x(d.avg_beds))
           .attr("cy", d => y(d.avg_deaths))
-          .attr("r", d => rScale(d.avg_deaths))
+          .attr("r", 10)
           .attr("fill", d => continentColorMap[d.continent])
           .attr("opacity", 0.8)
           .on("mouseover", function (event, d) {
