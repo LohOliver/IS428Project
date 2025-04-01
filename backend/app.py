@@ -1220,6 +1220,8 @@ def get_handwashing_facilities_vs_cases():
 
     return jsonify(result)
 
+#========================= Covid dashboard 4 ===============================
+
 @app.route('/policies', methods=['GET'])
 def get_policies_data():
     data = PolicyData.query.limit(10).all()
