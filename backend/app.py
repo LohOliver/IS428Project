@@ -240,7 +240,7 @@ def get_total_cases_by_country():
     # Query to get the maximum total cases for each country
     max_total_cases_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.total_cases).label("max_total_cases")
+        (func.max(CovidData.total_cases) / func.max(CovidData.population))
     ).group_by(
         CovidData.location
     ).filter(
@@ -269,7 +269,7 @@ def get_total_deaths_by_country():
     # Query to get the maximum total deaths for each country
     max_total_deaths_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.total_deaths).label("max_total_deaths")
+        func.max(CovidData.total_deaths)
     ).group_by(
         CovidData.location
     ).filter(
@@ -328,9 +328,9 @@ def get_total_recovered_by_country():
     # Calculate recovered cases as max total cases minus max total deaths
     result = {}
     for location, max_total_cases, max_total_deaths in recovered_query:
-        if max_total_cases is not None and max_total_deaths is not None:
+        if max_total_cases is not None and max_total_deaths is not None and max_total_cases != 0:
             # Ensure we don't have negative recovered values
-            recovered = max(0, int(max_total_cases) - int(max_total_deaths))
+            recovered = max(0, int(max_total_cases) - int(max_total_deaths)) / max_total_cases
             result[location] = recovered
         else:
             result[location] = 0
@@ -353,7 +353,7 @@ def get_total_vaccinated_by_country():
     # Query to get the maximum people fully vaccinated for each country
     max_vaccinated_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.people_fully_vaccinated).label("max_vaccinated")
+        (func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population))
     ).group_by(
         CovidData.location
     ).filter(
