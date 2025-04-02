@@ -40,12 +40,10 @@ export default function Dashboard3() {
           </select>
         </div>
 
-        {/* <div className="grid grid-cols-1 gap-6"> */}
-          {/* <div className="bg-white p-4 rounded shadow"> */}
         <div className="flex flex-col md:flex-row gap-6">
           {/*Bar Chart */}
           <div className="flex-1 bg-white p-4 rounded shadow">
-            <HospitalBedsBar selectedRegion={selectedRegion} />
+            <HospitalBedsBar />
           </div>
 
           {/* Legend */}
@@ -64,26 +62,14 @@ export default function Dashboard3() {
 
         {/* Scatter Plots */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-4 rounded shadow">
-            <BedsVsDeathsScatter selectedRegion={selectedRegion}/>
+          <div className="bg-white p-4 rounded shadow w-full">
+            <BedsVsDeathsScatter selectedRegion={selectedRegion} />
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <HygieneVsCasesScatter selectedRegion={selectedRegion}/>
+          <div className="bg-white p-4 rounded shadow w-full">
+            <HygieneVsCasesScatter selectedRegion={selectedRegion} />
           </div>
         </div>
 
-        {/* Legend */}
-        {/* <div className="bg-white p-4 rounded shadow w-full md:max-w-lg">
-          <h2 className="text-lg font-semibold mb-2">Continent Color Legend</h2>
-          <ul className="grid grid-cols-2 gap-x-4 text-sm">
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#3b82f6]"></span>Africa</li>
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#f97316]"></span>Asia</li>
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#22c55e]"></span>Europe</li>
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#ef4444]"></span>North America</li>
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#a16207]"></span>South America</li>
-            <li><span className="inline-block w-4 h-4 mr-2 bg-[#8b5cf6]"></span>Oceania</li>
-          </ul>
-        </div> */}
       </main>
     </div>
   );
