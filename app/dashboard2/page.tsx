@@ -127,7 +127,7 @@ export default function Dashboard2() {
           </Card>
         </div>
         
-        <div className="grid gap-4 md:grid-cols-2 h-[700px]">
+        <div className="grid gap-4 md:grid-cols-2 h-auto">
           <Card>
             <CardHeader>
               <CardTitle>Stringency Evolution: {selectedCountry}</CardTitle>
@@ -139,16 +139,13 @@ export default function Dashboard2() {
               />
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
-              <CardTitle>
-                Policy Measures Breakdown: {selectedCountry}
-              </CardTitle>
+              <CardTitle>Policy Measures Breakdown: {selectedCountry}</CardTitle>
             </CardHeader>
             <CardContent>
               <PolicyBreakdown
-                className="h-[600px]"
                 country={selectedCountry}
                 countryName={selectedCountry}
                 selectedDate={selectedDate}
@@ -156,6 +153,7 @@ export default function Dashboard2() {
             </CardContent>
           </Card>
         </div>
+
       </main>
     </div>
   );
