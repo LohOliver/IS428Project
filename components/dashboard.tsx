@@ -353,7 +353,7 @@ export default function Dashboard() {
               </CardHeader>
 
               <CardContent>
-                <div className="h-[700px]">
+                <div className="flex-1 min-w-0">
                   <ContinentCasesChart dataType={dataType} />
                 </div>
               </CardContent>
