@@ -12,7 +12,7 @@ export default function ContinentPopulationBar({ selectedRegion }: ContinentPopu
   const ref = useRef(null)
 
   useEffect(() => {
-    fetch("http://localhost:5002/continent_vs_population")
+    fetch("https://is428project.onrender.com/continent_vs_population")
     .then((res) => res.json())
     .then((rawData) => {
       const data = Object.entries(rawData)

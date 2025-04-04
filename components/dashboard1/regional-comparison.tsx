@@ -197,10 +197,10 @@ export default function CovidDashboard() {
 
   // Define API endpoints for each data type
   const endpoints = {
-    cases: 'http://localhost:5002/top10_countries_by_cases',
-    deaths: 'http://localhost:5002/top10_countries_by_deaths',
-    recovered: 'http://localhost:5002/top10_countries_by_recovered',
-    vaccinated: 'http://localhost:5002/top10_countries_by_vaccination'
+    cases: 'https://is428project.onrender.com/top10_countries_by_cases',
+    deaths: 'https://is428project.onrender.com/top10_countries_by_deaths',
+    recovered: 'https://is428project.onrender.com/top10_countries_by_recovered',
+    vaccinated: 'https://is428project.onrender.com/top10_countries_by_vaccination'
   }
 
   useEffect(() => {

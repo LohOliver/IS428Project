@@ -32,7 +32,7 @@ export default function CovidStatsPanel() {
       try {
         setLoading(true);
         // Fetch data from the API endpoint
-        const response = await fetch('http://localhost:5002/totals');
+        const response = await fetch('https://is428project.onrender.com/totals');
         
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);

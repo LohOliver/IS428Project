@@ -150,10 +150,10 @@ export default function Dashboard() {
         // Fetch top 10 country data for charts
         const [casesRes, deathsRes, recoveredRes, vaccinatedRes] =
           await Promise.all([
-            fetch("http://localhost:5002/top10_countries_by_cases"),
-            fetch("http://localhost:5002/top10_countries_by_deaths"),
-            fetch("http://localhost:5002/top10_countries_by_recovered"),
-            fetch("http://localhost:5002/top10_countries_by_vaccination"),
+            fetch("https://is428project.onrender.com/top10_countries_by_cases"),
+            fetch("https://is428project.onrender.com/top10_countries_by_deaths"),
+            fetch("https://is428project.onrender.com/top10_countries_by_recovered"),
+            fetch("https://is428project.onrender.com/top10_countries_by_vaccination"),
           ]);
 
         const [casesData, deathsData, recoveredData, vaccinatedData] =

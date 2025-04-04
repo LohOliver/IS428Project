@@ -18,10 +18,10 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
 
   // Define endpoints based on data type
   const endpoints: Record<DataType, string> = {
-    cases: "http://localhost:5002/continents_new_cases_per_month",
-    deaths: "http://localhost:5002/continents_new_deaths_per_month",
-    recovered: "http://localhost:5002/continents_estimated_recoveries_per_month",
-    vaccinated: "http://localhost:5002/continents_new_vaccinations_per_month",
+    cases: "https://is428project.onrender.com/continents_new_cases_per_month",
+    deaths: "https://is428project.onrender.com/continents_new_deaths_per_month",
+    recovered: "https://is428project.onrender.com/continents_estimated_recoveries_per_month",
+    vaccinated: "https://is428project.onrender.com/continents_new_vaccinations_per_month",
   };
 
   // Y-axis labels based on data type

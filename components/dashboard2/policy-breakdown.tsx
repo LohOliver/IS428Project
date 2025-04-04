@@ -215,7 +215,7 @@ export function PolicyBreakdown({
   className,
   country,
   countryName,
-  apiUrl = "http://localhost:5002/policies",
+  apiUrl = "https://is428project.onrender.com/policies",
   selectedDate,
   ...props
 }: PolicyBreakdownProps) {

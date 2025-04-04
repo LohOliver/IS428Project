@@ -21,7 +21,7 @@ export default function HandwashingScatter({ selectedRegion }: ContinentPopulati
   const [data, setData] = useState<HandwashingDataPoint[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:5002/handwashing_facilities_vs_cases")
+    fetch("https://is428project.onrender.com/handwashing_facilities_vs_cases")
       .then((res) => res.json())
       .then((fetched: HandwashingDataPoint[]) => setData(fetched));
   }, []);

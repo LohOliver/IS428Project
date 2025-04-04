@@ -140,7 +140,7 @@ export function TimeSeriesChart({
             try {
               const endpoint = METRIC_CONFIGS[metric].endpoint;
               const response = await fetch(
-                `http://localhost:5002/${endpoint}/${country}`
+                `https://is428project.onrender.com/${endpoint}/${country}`
               );
 
               if (!response.ok) {

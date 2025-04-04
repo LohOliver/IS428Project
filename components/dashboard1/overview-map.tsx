@@ -26,10 +26,10 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
 
   // API endpoints for different data types
   const endpoints = {
-    cases: "http://localhost:5002/total_cases_by_country",
-    deaths: "http://localhost:5002/total_deaths_by_country",
-    recovered: "http://localhost:5002/total_recovered_by_country",
-    vaccinated: "http://localhost:5002/total_vaccinated_by_country",
+    cases: "https://is428project.onrender.com/total_cases_by_country",
+    deaths: "https://is428project.onrender.com/total_deaths_by_country",
+    recovered: "https://is428project.onrender.com/total_recovered_by_country",
+    vaccinated: "https://is428project.onrender.com/total_vaccinated_by_country",
   };
 
   useEffect(() => {

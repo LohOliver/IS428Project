@@ -34,7 +34,7 @@ export default function Dashboard2() {
       try {
         // In a real application, you would fetch this from an API or load from a file
         const response = await fetch(
-          "http://localhost:5002/avg_stringency_by_month"
+          "https://is428project.onrender.com/avg_stringency_by_month"
         );
         const data: CountryStringencyData = await response.json();
         // Filter dates based on time range
