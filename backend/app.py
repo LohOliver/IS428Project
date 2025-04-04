@@ -971,10 +971,12 @@ def get_full_measures_data():
     data = MeasuresData.query.with_entities(MeasuresData.country, MeasuresData.region, MeasuresData.category, MeasuresData.date_implemented)
     return jsonify([{"country": entry.country, "region": entry.region, "category": entry.category, "date_implemented": entry.date_implemented} for entry in data])
 
+# You can also add an endpoint to get data for a specific country
 @app.route('/avg_stringency_by_month', methods=['GET'])
 def get_avg_stringency_by_month():
     """
-    Get the average stringency index for each country, grouped by month.
+    Get the average stringency index for each country, grouped by month,
+    filtered to only include data up to 2023-01.
     
     Returns:
         JSON response with the structure:
@@ -986,7 +988,7 @@ def get_avg_stringency_by_month():
             ...
         }
     """
-    # Extract year and month from date for grouping
+    # Extract year and month from date for grouping (original query without date filtering)
     stringency_data = db.session.query(
         CovidData.location,
         func.extract('year', CovidData.date).label('year'),
@@ -1009,7 +1011,9 @@ def get_avg_stringency_by_month():
         month_str = f"{int(month):02d}"
         date_key = f"{int(year)}-{month_str}"
         
-        result[location][date_key] = float(avg_stringency)
+        # Only include dates up to and including 2023-01
+        if date_key < "2023-01":
+            result[location][date_key] = float(avg_stringency)
     
     return jsonify(result)
 
@@ -1236,6 +1240,42 @@ def get_handwashing_facilities_vs_cases():
 def get_policies_data():
     data = PolicyData.query.limit(10).all()
     return jsonify([entry.to_dict() for entry in data])
+
+@app.route('/policies/<country_name>', methods=['GET'])
+def get_policies_for_country(country_name):
+    """
+    Get selected fields of policies for a specific country as an authorizing country.
+    
+    Args:
+        country_name: The full name of the country (e.g., 'United States', 'United Kingdom')
+        
+    Returns:
+        JSON list of selected policy fields for the specified country
+    """
+    # Query policies for the given country name as authorizing country only
+    policies = PolicyData.query.filter(
+        PolicyData.authorizing_country_iso == country_name
+    ).with_entities(
+        PolicyData.policy_category,
+        PolicyData.policy_subcategory,
+        PolicyData.authorizing_country_iso,
+        PolicyData.authorizing_country_name,
+        PolicyData.actual_end_date,
+        PolicyData.effective_start_date
+    ).all()
+    
+    # Convert query results to dictionaries
+    result = [{
+        'policy_category': policy.policy_category,
+        'policy_subcategory': policy.policy_subcategory,
+        'authorizing_country_iso': policy.authorizing_country_iso,
+        'authorizing_country_name': policy.authorizing_country_name,
+        'actual_end_date':policy.actual_end_date,
+        'effective_start_date':policy.effective_start_date,
+    } for policy in policies]
+    
+    # Return the results
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)

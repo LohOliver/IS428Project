@@ -34,7 +34,7 @@ export default function Dashboard2() {
       try {
         // In a real application, you would fetch this from an API or load from a file
         const response = await fetch(
-          "https://is428project.onrender.com/avg_stringency_by_month"
+          "http://localhost:5002/avg_stringency_by_month"
         );
         const data: CountryStringencyData = await response.json();
         // Filter dates based on time range
@@ -76,6 +76,8 @@ export default function Dashboard2() {
   }, [timeRange]);
 
   const handleCountryClick = (countryName: string, date: string) => {
+    console.log(countryName)
+    console.log(date)
     setSelectedCountry(countryName);
     setSelectedDate(date);
   };
@@ -116,7 +118,7 @@ export default function Dashboard2() {
                 </div>
               ) : (
                 <WorldMap
-                  className="aspect-[4/2] w-full"
+                  className="w-full h-[500px]"
                   onCountryClick={handleCountryClick}
                   timeSeriesData={stringencyData}
                   availableDates={availableDates}
@@ -131,11 +133,15 @@ export default function Dashboard2() {
           <Card>
             <CardHeader>
               <CardTitle>Stringency Evolution: {selectedCountry}</CardTitle>
+              <p className="text-sm text-muted-foreground">Selected date: {selectedDate}</p>
             </CardHeader>
             <CardContent>
               <TimeSeriesChart
                 country={selectedCountry}
+                onCountryClick={handleCountryClick}
+                countryName={selectedCountry}
                 timeSeriesData={stringencyData}
+                selectedDate={selectedDate}
               />
             </CardContent>
           </Card>

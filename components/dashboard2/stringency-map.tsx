@@ -23,6 +23,7 @@ export function WorldMap({
   onCountryClick,
   timeSeriesData,
   availableDates,
+  cutoffDate = "2023-01",
   maxStringency,
 }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -41,7 +42,6 @@ export function WorldMap({
   // Create a mapping from country names in our data to country names in the GeoJSON
   const countryNameMap: { [key: string]: string } = {
     "United States": "USA",
-
     "South Korea": "Korea, Republic of",
     "Côte d'Ivoire ":"Ivory Coast",
     "Tanzania":"United Republic of Tanzania",
@@ -54,9 +54,11 @@ export function WorldMap({
     "Bosnia and Herzegovina": "Bosnia and Herz.",
     "North Macedonia": "Macedonia",
     "Dominican Republic": "Dominican Rep.",
-    "Equatorial Guinea": "Eq. Guinea"
+    "Equatorial Guinea": "Eq. Guinea",
+    "Singapore": "Singapore" // Explicitly add Singapore mapping
     // Add more mappings as needed
   };
+  
 
   // Function to get data country name from GeoJSON country name
   const getDataCountryName = (geoJsonName: string): string => {
@@ -75,6 +77,7 @@ export function WorldMap({
     // Return the mapped name if it exists
     return countryNameMap[dataCountryName] || dataCountryName;
   };
+  
 
   useEffect(() => {
     const loadGeoData = async () => {
@@ -112,6 +115,50 @@ export function WorldMap({
       onCountryClick(selectedCountry, availableDates[currentDateIndex]);
     }
   }, [currentDateIndex, selectedCountry, availableDates, onCountryClick]);
+  
+  // Function to zoom to a specific country
+  const zoomToCountry = (countryName: string) => {
+    if (!svgRef.current || !worldGeoData || !zoomRef.current) return;
+    
+    const svg = d3.select(svgRef.current);
+    const width = svgRef.current.clientWidth || 800;
+    const height = svgRef.current.clientHeight || 600;
+    
+    // Find the country feature in the GeoJSON data
+    const countryFeature = worldGeoData.features.find((f: any) => {
+      return getDataCountryName(f.properties.name) === countryName;
+    });
+    
+    if (countryFeature) {
+      // Create a path generator for calculating bounds
+      const projection = d3.geoNaturalEarth1()
+        .fitSize([width, height], { type: "Sphere" })
+        .translate([width / 2, height / 2]);
+      const pathGenerator = d3.geoPath().projection(projection);
+      
+      // Calculate bounds of the country
+      const bounds = pathGenerator.bounds(countryFeature);
+      const dx = bounds[1][0] - bounds[0][0];
+      const dy = bounds[1][1] - bounds[0][1];
+      const x = (bounds[0][0] + bounds[1][0]) / 2;
+      const y = (bounds[0][1] + bounds[1][1]) / 2;
+      
+      // Calculate scale and translate parameters for zooming
+      // Using a smaller scale factor for very small countries
+      const scale = 0.8 / Math.max(dx / width, dy / height);
+      const translate = [width / 2 - scale * x, height / 2 - scale * y];
+      
+      // Apply the transformation with a smooth transition
+      svg.transition()
+        .duration(750)
+        .call(
+          zoomRef.current.transform,
+          d3.zoomIdentity
+            .translate(translate[0], translate[1])
+            .scale(Math.min(8, scale)) // Cap the max zoom level
+        );
+    }
+  };
 
   useEffect(() => {
     if (isPlaying) {
@@ -327,6 +374,9 @@ export function WorldMap({
         const dataCountryName = getDataCountryName(geoCountryName);
         setSelectedCountry(dataCountryName);
         onCountryClick(dataCountryName, currentDate);
+        
+        // Zoom to the selected country
+        zoomToCountry(dataCountryName);
       })
       .on("mouseover", (event: any, d: any) => {
         const geoCountryName = d.properties.name;
@@ -391,11 +441,12 @@ export function WorldMap({
       .scaleExtent([1, 8]) // Allow zooming out a bit and zooming in
       .on("zoom", (event: any) => {
         mapGroup.attr("transform", event.transform);
-        mapGroup.selectAll("path").attr("stroke-width", (d: any) => {
-          if (d3.select(d3.event.currentTarget).classed("selected-country")) {
-            return 2 / event.transform.k;
-          }
-          return 0.5 / event.transform.k;
+        
+        // FIX: Use event.sourceEvent.target instead of d3.event.currentTarget
+        mapGroup.selectAll("path").attr("stroke-width", function(d: any) {
+          // Use d3.select(this) instead of d3.select(d3.event.currentTarget)
+          const isSelected = d3.select(this).classed("selected-country");
+          return isSelected ? 2 / event.transform.k : 0.5 / event.transform.k;
         });
       });
 
@@ -424,11 +475,15 @@ export function WorldMap({
         );
     });
 
-    // If Singapore is selected, don't automatically zoom to it on initial render
-    // Instead, show the full world map by default
+    // If Singapore is selected, let's automatically zoom to it on initial render
+    // to help the user locate it on the map
     if (selectedCountry === "Singapore" && initialRenderRef.current) {
-      // Simply call onCountryClick without zooming
+      // Call onCountryClick and zoom to Singapore
       onCountryClick("Singapore", currentDate);
+      // Add a small delay before zooming to ensure the map is fully rendered
+      setTimeout(() => {
+        zoomToCountry("Singapore");
+      }, 1000);
     }
   }, [
     worldGeoData,
@@ -511,9 +566,20 @@ export function WorldMap({
       })
     : "";
 
+  // Function to handle country selection from dropdown
+  const handleCountrySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCountryName = e.target.value;
+    
+    if (selectedCountryName) {
+      setSelectedCountry(selectedCountryName);
+      onCountryClick(selectedCountryName, availableDates[currentDateIndex]);
+      zoomToCountry(selectedCountryName);
+    }
+  };
+  
   return (
     <div
-      className={`${className} relative rounded-lg shadow-lg bg-white p-4 overflow-hidden`}
+      className={`${className} relative rounded-lg shadow-lg bg-white p-4 `}
     >
       {loading ? (
         <div className="flex items-center justify-center h-[650px]">
@@ -525,8 +591,8 @@ export function WorldMap({
           <svg
             ref={svgRef}
             width="100%"
-            height="85%"
-            className="overflow-hidden"
+            height="70%"
+       
           />
 
           <div
@@ -538,6 +604,49 @@ export function WorldMap({
           />
 
           {/* Zoom controls */}
+          {/* Country dropdown */}
+          <div className="absolute top-4 left-4 z-10 w-60">
+            <div className="flex flex-col">
+              <label htmlFor="country-select" className="text-xs font-medium text-gray-700 mb-1">
+                Select a country:
+              </label>
+              <select
+                id="country-select"
+                value={selectedCountry}
+                onChange={handleCountrySelect}
+                className="py-2 px-3 border border-gray-300 bg-white rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">-- Select a country --</option>
+                {/* Add Singapore as the first option for easy access */}
+                <option value="Singapore">Singapore</option>
+                {/* List all other countries alphabetically */}
+                {Object.keys(timeSeriesData)
+                  .filter(country => country !== "Singapore")
+                  .sort()
+                  .map(country => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+          </div>
+          
+          {/* Find Singapore button */}
+          <div className="absolute top-20 left-4 z-10">
+            <button
+              onClick={() => {
+                setSelectedCountry("Singapore");
+                onCountryClick("Singapore", availableDates[currentDateIndex]);
+                zoomToCountry("Singapore");
+              }}
+              className="py-1 px-3 bg-blue-100 text-blue-700 rounded border border-blue-200 text-sm font-medium hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Find Singapore
+            </button>
+          </div>
+          
           <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
             <button
               onClick={handleZoomIn}
