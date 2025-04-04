@@ -43,11 +43,11 @@ export function WorldMap({
   const countryNameMap: { [key: string]: string } = {
     "United States": "USA",
     "South Korea": "Korea, Republic of",
-    "Côte d'Ivoire ":"Ivory Coast",
-    "Tanzania":"United Republic of Tanzania",
+    "Côte d'Ivoire ": "Ivory Coast",
+    Tanzania: "United Republic of Tanzania",
     "United Kingdom": "England",
     "Democratic Republic of Congo": "Democratic Republic of the Congo",
-    "Congo": "Republic of the Congo",
+    Congo: "Republic of the Congo",
     "South Sudan": "S. Sudan",
     "Central African Republic": "Central African Rep.",
     "Cote d'Ivoire": "Côte d'Ivoire",
@@ -55,10 +55,9 @@ export function WorldMap({
     "North Macedonia": "Macedonia",
     "Dominican Republic": "Dominican Rep.",
     "Equatorial Guinea": "Eq. Guinea",
-    "Singapore": "Singapore" // Explicitly add Singapore mapping
+    Singapore: "Singapore", // Explicitly add Singapore mapping
     // Add more mappings as needed
   };
-  
 
   // Function to get data country name from GeoJSON country name
   const getDataCountryName = (geoJsonName: string): string => {
@@ -77,7 +76,6 @@ export function WorldMap({
     // Return the mapped name if it exists
     return countryNameMap[dataCountryName] || dataCountryName;
   };
-  
 
   useEffect(() => {
     const loadGeoData = async () => {
@@ -115,41 +113,43 @@ export function WorldMap({
       onCountryClick(selectedCountry, availableDates[currentDateIndex]);
     }
   }, [currentDateIndex, selectedCountry, availableDates, onCountryClick]);
-  
+
   // Function to zoom to a specific country
   const zoomToCountry = (countryName: string) => {
     if (!svgRef.current || !worldGeoData || !zoomRef.current) return;
-    
+
     const svg = d3.select(svgRef.current);
     const width = svgRef.current.clientWidth || 800;
     const height = svgRef.current.clientHeight || 600;
-    
+
     // Find the country feature in the GeoJSON data
     const countryFeature = worldGeoData.features.find((f: any) => {
       return getDataCountryName(f.properties.name) === countryName;
     });
-    
+
     if (countryFeature) {
       // Create a path generator for calculating bounds
-      const projection = d3.geoNaturalEarth1()
+      const projection = d3
+        .geoNaturalEarth1()
         .fitSize([width, height], { type: "Sphere" })
         .translate([width / 2, height / 2]);
       const pathGenerator = d3.geoPath().projection(projection);
-      
+
       // Calculate bounds of the country
       const bounds = pathGenerator.bounds(countryFeature);
       const dx = bounds[1][0] - bounds[0][0];
       const dy = bounds[1][1] - bounds[0][1];
       const x = (bounds[0][0] + bounds[1][0]) / 2;
       const y = (bounds[0][1] + bounds[1][1]) / 2;
-      
+
       // Calculate scale and translate parameters for zooming
       // Using a smaller scale factor for very small countries
       const scale = 0.8 / Math.max(dx / width, dy / height);
       const translate = [width / 2 - scale * x, height / 2 - scale * y];
-      
+
       // Apply the transformation with a smooth transition
-      svg.transition()
+      svg
+        .transition()
         .duration(750)
         .call(
           zoomRef.current.transform,
@@ -310,7 +310,7 @@ export function WorldMap({
 
     // Add title with the current date
     const titleGroup = svg.append("g").attr("class", "map-title");
-    
+
     titleGroup
       .append("text")
       .attr("x", width / 2)
@@ -320,7 +320,7 @@ export function WorldMap({
       .attr("font-weight", "bold")
       .attr("fill", "#1e293b") // Darker text for better contrast
       .text("COVID-19 Stringency Index");
-    
+
     titleGroup
       .append("text")
       .attr("x", width / 2)
@@ -354,7 +354,9 @@ export function WorldMap({
       .attr("stroke-opacity", 0.7)
       .attr("class", (d: any) => {
         const dataCountryName = getDataCountryName(d.properties.name);
-        return dataCountryName === selectedCountry ? "selected-country country" : "country";
+        return dataCountryName === selectedCountry
+          ? "selected-country country"
+          : "country";
       })
       .style("cursor", "pointer")
       .style("stroke-width", (d: any) => {
@@ -367,17 +369,21 @@ export function WorldMap({
       })
       .style("filter", (d: any) => {
         const dataCountryName = getDataCountryName(d.properties.name);
-        return dataCountryName === selectedCountry ? "url(#drop-shadow)" : "none";
+        return dataCountryName === selectedCountry
+          ? "url(#drop-shadow)"
+          : "none";
       })
       .on("click", (event: any, d: any) => {
         const geoCountryName = d.properties.name;
         const dataCountryName = getDataCountryName(geoCountryName);
         setSelectedCountry(dataCountryName);
         onCountryClick(dataCountryName, currentDate);
-        
+
         // Zoom to the selected country
         zoomToCountry(dataCountryName);
       })
+
+      // 2. Update this mouseover handler:
       .on("mouseover", (event: any, d: any) => {
         const geoCountryName = d.properties.name;
         const dataCountryName = getDataCountryName(geoCountryName);
@@ -403,28 +409,35 @@ export function WorldMap({
               <span>Stringency: ${value.toFixed(2)}</span>
             </div>`
           )
-          .style("left", `${event.clientX + 5}px`)
-          .style("top", `${event.clientY - 28}px`)
+          .style("left", `${event.pageX + 5}px`)
+          .style("top", `${event.pageY - 28}px`)
           .transition()
           .duration(200)
           .style("opacity", 1);
       })
+
+      // 3. Update this mousemove handler:
       .on("mousemove", (event: any) => {
         tooltip
-          .style("left", `${event.clientX + 10}px`)
-          .style("top", `${event.clientY - 40}px`);
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 40}px`);
       })
+
+      // 4. Update this mouseout handler:
       .on("mouseout", (event: any, d: any) => {
         const geoCountryName = d.properties.name;
         const dataCountryName = getDataCountryName(geoCountryName);
-        
+
         // Reset country highlight
         d3.select(event.target)
           .transition()
           .duration(200)
           .style("fill-opacity", 1)
           .style("stroke-width", dataCountryName === selectedCountry ? 2 : 0.5)
-          .style("stroke", dataCountryName === selectedCountry ? "#f43f5e" : "#94a3b8");
+          .style(
+            "stroke",
+            dataCountryName === selectedCountry ? "#f43f5e" : "#94a3b8"
+          );
 
         setHoveredCountry(null);
 
@@ -435,16 +448,14 @@ export function WorldMap({
           .on("end", () => tooltip.style("visibility", "hidden"));
       });
 
-    // Create zoom behavior with smoother transitions
+    // 5. Update this zoom handler:
     const zoom = d3
       .zoom()
-      .scaleExtent([1, 8]) // Allow zooming out a bit and zooming in
+      .scaleExtent([1, 8])
       .on("zoom", (event: any) => {
         mapGroup.attr("transform", event.transform);
-        
-        // FIX: Use event.sourceEvent.target instead of d3.event.currentTarget
-        mapGroup.selectAll("path").attr("stroke-width", function(d: any) {
-          // Use d3.select(this) instead of d3.select(d3.event.currentTarget)
+
+        mapGroup.selectAll("path").attr("stroke-width", function (d: any) {
           const isSelected = d3.select(this).classed("selected-country");
           return isSelected ? 2 / event.transform.k : 0.5 / event.transform.k;
         });
@@ -453,8 +464,7 @@ export function WorldMap({
     zoomRef.current = zoom;
     svg.call(zoom);
 
-    // Handle double-click for smoother zoom
-    svg.on("dblclick.zoom", null);
+    // 6. Update the double-click handler:
     svg.on("dblclick", (event) => {
       const transform = d3.zoomTransform(svg.node()!);
       const newScale = transform.k * 1.5;
@@ -569,18 +579,16 @@ export function WorldMap({
   // Function to handle country selection from dropdown
   const handleCountrySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCountryName = e.target.value;
-    
+
     if (selectedCountryName) {
       setSelectedCountry(selectedCountryName);
       onCountryClick(selectedCountryName, availableDates[currentDateIndex]);
       zoomToCountry(selectedCountryName);
     }
   };
-  
+
   return (
-    <div
-      className={`${className} relative rounded-lg shadow-lg bg-white p-4 `}
-    >
+    <div className={`${className} relative rounded-lg shadow-lg bg-white p-4 `}>
       {loading ? (
         <div className="flex items-center justify-center h-[650px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -588,12 +596,7 @@ export function WorldMap({
         </div>
       ) : (
         <>
-          <svg
-            ref={svgRef}
-            width="100%"
-            height="70%"
-       
-          />
+          <svg ref={svgRef} width="100%" height="70%" />
 
           <div
             ref={tooltipRef}
@@ -607,7 +610,10 @@ export function WorldMap({
           {/* Country dropdown */}
           <div className="absolute top-4 left-4 z-10 w-60">
             <div className="flex flex-col">
-              <label htmlFor="country-select" className="text-xs font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="country-select"
+                className="text-xs font-medium text-gray-700 mb-1"
+              >
                 Select a country:
               </label>
               <select
@@ -621,18 +627,17 @@ export function WorldMap({
                 <option value="Singapore">Singapore</option>
                 {/* List all other countries alphabetically */}
                 {Object.keys(timeSeriesData)
-                  .filter(country => country !== "Singapore")
+                  .filter((country) => country !== "Singapore")
                   .sort()
-                  .map(country => (
+                  .map((country) => (
                     <option key={country} value={country}>
                       {country}
                     </option>
-                  ))
-                }
+                  ))}
               </select>
             </div>
           </div>
-          
+
           {/* Find Singapore button */}
           <div className="absolute top-20 left-4 z-10">
             <button
@@ -646,7 +651,7 @@ export function WorldMap({
               Find Singapore
             </button>
           </div>
-          
+
           <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">
             <button
               onClick={handleZoomIn}

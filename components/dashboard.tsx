@@ -101,7 +101,7 @@ function RegionalComparison({
             layout="vertical"
             margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
             onClick={(data) => {
-              if (data && data.activePayload && data.activePayload[0]) {
+              if (data && data.activePayload && data.activePayload.length > 0) {
                 const clickedRegion = data.activePayload[0].payload.name;
                 onRegionSelect(clickedRegion);
               }
@@ -323,7 +323,7 @@ export default function Dashboard() {
           {/* Charts section - Bar chart and Line chart side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[750px]">
             {/* Bar Chart */}
-            <Card >
+            <Card>
               <CardHeader>
                 <CardTitle>Top 10 Countries</CardTitle>
                 <CardDescription>
