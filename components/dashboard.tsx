@@ -12,7 +12,7 @@ import { fetchCovidData } from "@/lib/api";
 import type { CovidData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { DashboardNavbar } from "../components/ui/navbar";
+import { DashboardNavbar } from "./navbar";
 import CovidWorldMap, { CovidDataType } from "./dashboard1/overview-map";
 import {
   Bar,

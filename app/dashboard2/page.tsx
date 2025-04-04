@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WorldMap } from "../../components/dashboard2/stringency-map";
 import { TimeSeriesChart } from "../../components/dashboard2/time-series-chart";
 import { PolicyBreakdown } from "../../components/dashboard2/policy-breakdown";
-import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
+import { DashboardNavbar } from "../../components/navbar"; // Import the navbar component
 
 // Define the interfaces for our data types
 interface StringencyData {
