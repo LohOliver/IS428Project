@@ -340,28 +340,19 @@ def get_total_recovered_by_country():
 
 @app.route('/total_vaccinated_by_country', methods=['GET'])
 def get_total_vaccinated_by_country():
-    """
-    Get the maximum total people fully vaccinated for each country.
-    
-    Returns:
-        JSON response with the structure:
-        {
-            "country_name": max_people_fully_vaccinated_value,
-            ...
-        }
-    """
-    # Query to get the maximum people fully vaccinated for each country
+    # Same query as before
     max_vaccinated_query = db.session.query(
         CovidData.location,
         (func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population))
     ).group_by(
         CovidData.location
     ).filter(
-        CovidData.people_fully_vaccinated.isnot(None)  # Filter out NULL values
+        CovidData.people_fully_vaccinated.isnot(None)
     ).all()
     
-    # Format the result as a dictionary
-    result = {location: int(max_vaccinated) if max_vaccinated else 0 for location, max_vaccinated in max_vaccinated_query}
+    # Keep as float instead of converting to int
+    result = {location: float(max_vaccinated) if max_vaccinated is not None else 0.0 
+              for location, max_vaccinated in max_vaccinated_query}
     
     return jsonify(result)
 
