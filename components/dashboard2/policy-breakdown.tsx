@@ -4,9 +4,190 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import countryNameToAlpha3 from "./countryCode.json";
 
-// Interfaces and types remain the same
+// Define the countryNameToAlpha3 mapping directly in this file
+// instead of importing from an external JSON file
+const countryNameToAlpha3: Record<string, string> = {
+  Afghanistan: "AFG",
+  Albania: "ALB",
+  Algeria: "DZA",
+  Andorra: "AND",
+  Angola: "AGO",
+  Argentina: "ARG",
+  Armenia: "ARM",
+  Australia: "AUS",
+  Austria: "AUT",
+  Azerbaijan: "AZE",
+  Bahamas: "BHS",
+  Bahrain: "BHR",
+  Bangladesh: "BGD",
+  Barbados: "BRB",
+  Belarus: "BLR",
+  Belgium: "BEL",
+  Belize: "BLZ",
+  Benin: "BEN",
+  Bhutan: "BTN",
+  Bolivia: "BOL",
+  "Bosnia and Herzegovina": "BIH",
+  Botswana: "BWA",
+  Brazil: "BRA",
+  Brunei: "BRN",
+  Bulgaria: "BGR",
+  "Burkina Faso": "BFA",
+  Burundi: "BDI",
+  Cambodia: "KHM",
+  Cameroon: "CMR",
+  Canada: "CAN",
+  "Cape Verde": "CPV",
+  "Central African Republic": "CAF",
+  Chad: "TCD",
+  Chile: "CHL",
+  China: "CHN",
+  Colombia: "COL",
+  Comoros: "COM",
+  Congo: "COG",
+  "Costa Rica": "CRI",
+  Croatia: "HRV",
+  Cuba: "CUB",
+  Cyprus: "CYP",
+  "Czech Republic": "CZE",
+  Denmark: "DNK",
+  Djibouti: "DJI",
+  Dominica: "DMA",
+  "Dominican Republic": "DOM",
+  Ecuador: "ECU",
+  Egypt: "EGY",
+  "El Salvador": "SLV",
+  "Equatorial Guinea": "GNQ",
+  Eritrea: "ERI",
+  Estonia: "EST",
+  Eswatini: "SWZ",
+  Ethiopia: "ETH",
+  Fiji: "FJI",
+  Finland: "FIN",
+  France: "FRA",
+  Gabon: "GAB",
+  Gambia: "GMB",
+  Georgia: "GEO",
+  Germany: "DEU",
+  Ghana: "GHA",
+  Greece: "GRC",
+  Grenada: "GRD",
+  Guatemala: "GTM",
+  Guinea: "GIN",
+  "Guinea-Bissau": "GNB",
+  Guyana: "GUY",
+  Haiti: "HTI",
+  Honduras: "HND",
+  Hungary: "HUN",
+  Iceland: "ISL",
+  India: "IND",
+  Indonesia: "IDN",
+  Iran: "IRN",
+  Iraq: "IRQ",
+  Ireland: "IRL",
+  Israel: "ISR",
+  Italy: "ITA",
+  Jamaica: "JAM",
+  Japan: "JPN",
+  Jordan: "JOR",
+  Kazakhstan: "KAZ",
+  Kenya: "KEN",
+  Kiribati: "KIR",
+  Kuwait: "KWT",
+  Kyrgyzstan: "KGZ",
+  Laos: "LAO",
+  Latvia: "LVA",
+  Lebanon: "LBN",
+  Lesotho: "LSO",
+  Liberia: "LBR",
+  Libya: "LBY",
+  Liechtenstein: "LIE",
+  Lithuania: "LTU",
+  Luxembourg: "LUX",
+  Madagascar: "MDG",
+  Malawi: "MWI",
+  Malaysia: "MYS",
+  Maldives: "MDV",
+  Mali: "MLI",
+  Malta: "MLT",
+  Mauritania: "MRT",
+  Mauritius: "MUS",
+  Mexico: "MEX",
+  Moldova: "MDA",
+  Monaco: "MCO",
+  Mongolia: "MNG",
+  Montenegro: "MNE",
+  Morocco: "MAR",
+  Mozambique: "MOZ",
+  Myanmar: "MMR",
+  Namibia: "NAM",
+  Nepal: "NPL",
+  Netherlands: "NLD",
+  "New Zealand": "NZL",
+  Nicaragua: "NIC",
+  Niger: "NER",
+  Nigeria: "NGA",
+  "North Korea": "PRK",
+  "North Macedonia": "MKD",
+  Norway: "NOR",
+  Oman: "OMN",
+  Pakistan: "PAK",
+  Palau: "PLW",
+  Panama: "PAN",
+  "Papua New Guinea": "PNG",
+  Paraguay: "PRY",
+  Peru: "PER",
+  Philippines: "PHL",
+  Poland: "POL",
+  Portugal: "PRT",
+  Qatar: "QAT",
+  Romania: "ROU",
+  Russia: "RUS",
+  Rwanda: "RWA",
+  "Saudi Arabia": "SAU",
+  Senegal: "SEN",
+  Serbia: "SRB",
+  Singapore: "SGP",
+  Slovakia: "SVK",
+  Slovenia: "SVN",
+  "Solomon Islands": "SLB",
+  "South Africa": "ZAF",
+  "South Korea": "KOR",
+  Spain: "ESP",
+  "Sri Lanka": "LKA",
+  Sudan: "SDN",
+  Suriname: "SUR",
+  Sweden: "SWE",
+  Switzerland: "CHE",
+  Syria: "SYR",
+  Taiwan: "TWN",
+  Tajikistan: "TJK",
+  Tanzania: "TZA",
+  Thailand: "THA",
+  Togo: "TGO",
+  Tonga: "TON",
+  "Trinidad and Tobago": "TTO",
+  Tunisia: "TUN",
+  Turkey: "TUR",
+  Turkmenistan: "TKM",
+  Uganda: "UGA",
+  Ukraine: "UKR",
+  "United Arab Emirates": "ARE",
+  "United Kingdom": "GBR",
+  "United States": "USA",
+  Uruguay: "URY",
+  Uzbekistan: "UZB",
+  Vanuatu: "VUT",
+  "Vatican City": "VAT",
+  Venezuela: "VEN",
+  Vietnam: "VNM",
+  Yemen: "YEM",
+  Zambia: "ZMB",
+  Zimbabwe: "ZWE",
+};
+
+// Interfaces and types
 interface PolicyData {
   policy_category: string;
   policy_subcategory: string;
@@ -65,6 +246,8 @@ export function PolicyBreakdown({
         // Get the alpha-3 code from country name or use provided country code
         let countryCode = country;
         if (countryName) {
+          // TypeScript now knows countryNameToAlpha3 is a Record<string, string>
+          // so this indexing is safe
           countryCode = countryNameToAlpha3[countryName] || "";
           if (!countryCode) {
             setError(`Could not find country code for: ${countryName}`);
@@ -140,7 +323,7 @@ export function PolicyBreakdown({
 
         setPolicyData(filteredPolicies);
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching policy data:", err);
         setError(`Failed to load policy data: ${err.message}`);
         setPolicyData([]);
@@ -152,6 +335,7 @@ export function PolicyBreakdown({
     prevDateRef.current = selectedDate;
   }, [apiUrl, country, countryName, selectedDate]);
 
+  // Rest of your component code remains the same
   // Process data to get policy counts by category
   const processedData = useMemo(() => {
     // Define all known policy categories
@@ -299,9 +483,11 @@ export function PolicyBreakdown({
 
     if (svg.empty()) {
       // Create a new SVG if it doesn't exist (without border)
-      svg = d3
-        .select(chartRef.current)
-        .append("svg")
+      // Add a type assertion to tell TypeScript this is compatible
+      svg = d3.select(chartRef.current).append("svg") as unknown as typeof svg;
+
+      // Continue with the rest of your methods
+      svg
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .style("border", "none")
@@ -312,11 +498,6 @@ export function PolicyBreakdown({
         .append("g")
         .attr("class", "chart-content")
         .attr("transform", `translate(${margin.left},${margin.top})`);
-    } else {
-      // Update existing SVG dimensions
-      svg
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom);
     }
 
     const chartContent = svg.select(".chart-content");
@@ -368,32 +549,36 @@ export function PolicyBreakdown({
       .text(`Policy Breakdown - ${formatDate(selectedDate)}`);
 
     // Helper function for tooltip
+    // Helper function for tooltip
     const showTooltip = (event: MouseEvent, d: PolicyCount) => {
       if (!tooltipRef.current) return;
 
-      tooltipRef.current.innerHTML = "";
+      // Store a reference to the current tooltip element to use in the callback
+      const tooltip = tooltipRef.current;
+
+      tooltip.innerHTML = "";
 
       const titleDiv = document.createElement("div");
       titleDiv.style.fontWeight = "bold";
       titleDiv.textContent = `${d.name}: ${d.count} policies`;
-      tooltipRef.current.appendChild(titleDiv);
+      tooltip.appendChild(titleDiv);
 
       if (d.subcategories && d.subcategories.length > 0) {
         const subCatHeader = document.createElement("div");
         subCatHeader.textContent = "Subcategories:";
-        tooltipRef.current.appendChild(subCatHeader);
+        tooltip.appendChild(subCatHeader);
 
         d.subcategories.forEach((subcategory) => {
           const subCatItem = document.createElement("div");
           subCatItem.style.marginTop = "3px";
           subCatItem.textContent = `- ${subcategory}`;
-          tooltipRef.current.appendChild(subCatItem);
+          tooltip.appendChild(subCatItem); // Now using the local variable
         });
       }
 
-      tooltipRef.current.style.visibility = "visible";
-      tooltipRef.current.style.left = `${event.pageX + 10}px`;
-      tooltipRef.current.style.top = `${event.pageY - 10}px`;
+      tooltip.style.visibility = "visible";
+      tooltip.style.left = `${event.pageX + 10}px`;
+      tooltip.style.top = `${event.pageY - 10}px`;
     };
 
     const hideTooltip = () => {
@@ -428,7 +613,6 @@ export function PolicyBreakdown({
       })
       .on("mousemove", moveTooltip)
       .on("mouseout", hideTooltip)
-
       .attr("y", (d) => y(d.count))
       .attr("height", (d) => height - y(d.count));
 
@@ -446,7 +630,6 @@ export function PolicyBreakdown({
       .attr("font-size", "12px")
       .attr("fill", "#333")
       .attr("opacity", 0) // Start transparent for transition
-
       .attr("y", (d) => y(d.count) - 5)
       .attr("opacity", 1);
   }, [processedData, chartDimensions]); // Removed selectedDate from dependencies

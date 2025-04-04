@@ -23,7 +23,6 @@ export function WorldMap({
   onCountryClick,
   timeSeriesData,
   availableDates,
-  cutoffDate = "2023-01",
   maxStringency,
 }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -58,6 +57,8 @@ export function WorldMap({
     Singapore: "Singapore", // Explicitly add Singapore mapping
     // Add more mappings as needed
   };
+
+  const cutoffDate = "2023-01";
 
   // Function to get data country name from GeoJSON country name
   const getDataCountryName = (geoJsonName: string): string => {
@@ -226,7 +227,9 @@ export function WorldMap({
     mapGroup
       .append("path")
       .datum({ type: "Sphere" })
-      .attr("d", pathGenerator)
+      .attr("d", function (d) {
+        return pathGenerator(d as d3.GeoPermissibleObjects) || "";
+      })
       .attr("fill", "#f1f5f9")
       .attr("stroke", "#cbd5e1")
       .attr("stroke-width", 0.5);
@@ -342,7 +345,9 @@ export function WorldMap({
       .enter()
       .append("path")
       .attr("class", "country")
-      .attr("d", pathGenerator)
+      .attr("d", function (d) {
+        return pathGenerator(d as d3.GeoPermissibleObjects) || "";
+      })
       .attr("fill", (d: any) => {
         // Use the mapping to get the correct country name in our data
         const dataCountryName = getDataCountryName(d.properties.name);
@@ -462,7 +467,7 @@ export function WorldMap({
       });
 
     zoomRef.current = zoom;
-    svg.call(zoom);
+    svg.call(zoom as any);
 
     // 6. Update the double-click handler:
     svg.on("dblclick", (event) => {
@@ -475,7 +480,7 @@ export function WorldMap({
         .duration(400)
         .ease(d3.easeCubicOut)
         .call(
-          zoom.transform,
+          zoom.transform as any,
           d3.zoomIdentity
             .translate(
               width / 2 - newScale * coordinates[0],

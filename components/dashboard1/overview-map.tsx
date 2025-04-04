@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
+import { Feature, FeatureCollection, Geometry } from "geojson";
 
 // Define the type for our country data
 interface CountryData {
@@ -103,7 +104,6 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
       );
 
-      // Convert TopoJSON to GeoJSON
       const countries = feature(worldData, worldData.objects.countries);
 
       // Get country names from topology data
@@ -178,10 +178,11 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       // Create a path generator
       const path = d3.geoPath().projection(projection);
 
-      // Draw the map
+      // Draw the map - Fixed type annotation for features
       svg
         .selectAll("path")
-        .data(countries.features)
+        // First cast to unknown, then to the expected type with features property
+        .data((countries as unknown as { features: any[] }).features)
         .enter()
         .append("path")
         .attr("d", path)
@@ -202,17 +203,18 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
         .attr("class", "country")
-        .on("mouseover", function (event, d: any) {
+        .on("mouseover", function (event, d: Feature<Geometry>) {
           // Show tooltip
-          const geoName = d.properties.name;
+          const properties = d.properties as any;
+          const geoName = properties.name;
           const ourName = reverseMap[geoName] || geoName;
           const value = filteredData[ourName];
 
           tooltip.style("opacity", 1).html(`
                 <strong>${ourName}</strong><br/>
-                ${getDataTypeLabel(dataType)}: ${
-            value ? (value * 100).toFixed(1) + "%" : "No data"
-          }
+                ${getDataTypeLabel(
+                  dataType
+                )}: ${value ? (value * 100).toFixed(1) + "%" : "No data"}
               `);
         })
         .on("mousemove", function (event) {
@@ -239,7 +241,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       const legendAxis = d3
         .axisBottom(legendScale)
         .tickValues(getTickValuesForProbability(maxValue))
-        .tickFormat((d) => d3.format(".0%")(d));
+        .tickFormat((d) => d3.format(".0%")(d as number));
 
       // Create legend container
       const legend = svg

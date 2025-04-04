@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Selection } from "d3-selection";
 interface TimeSeriesData {
   date: Date;
   value: number;
@@ -24,7 +24,7 @@ interface TimeSeriesChartProps {
   timeSeriesData?: Record<string, Record<string, number>>;
   apiUrl?: string;
   selectedDate?: string;
-  cutoffDate?: string; // Added optional prop for customizing cutoff date
+  cutoffDate?: string;
 }
 
 const METRIC_CONFIGS = {
@@ -272,11 +272,12 @@ export function TimeSeriesChart({
     // Define time domain based on common dates
     const timeDomain = d3.extent(
       commonDateKeys
-        .map(
-          (dateKey) =>
-            dataByDate.get(dateKey)?.date || metricByDate.get(dateKey)?.date
-        )
-        .filter(Boolean)
+        .map((dateKey) => {
+          const date =
+            dataByDate.get(dateKey)?.date || metricByDate.get(dateKey)?.date;
+          return date || new Date(); // Provide a fallback value, we'll filter out any defaults
+        })
+        .filter((d): d is Date => Boolean(d))
     ) as [Date, Date];
 
     // Define scales for the primary axis (left)
@@ -298,14 +299,17 @@ export function TimeSeriesChart({
     const xAxis = d3
       .axisBottom(xScale)
       .ticks(10)
-      .tickFormat(d3.timeFormat("%Y-%m"));
+      .tickFormat(d3.timeFormat("%Y-%m") as any);
     const yAxisLeft = d3.axisLeft(yScaleLeft);
     const yAxisRight = d3.axisRight(yScaleRight).tickFormat((d) => {
+      // Cast d to number to allow the comparisons
+      const value = +d; // Convert to number with unary plus
+
       // Format large numbers with K/M suffix
-      return d >= 1000000
-        ? `${(d / 1000000).toFixed(1)}M`
-        : d >= 1000
-        ? `${(d / 1000).toFixed(1)}K`
+      return value >= 1000000
+        ? `${(value / 1000000).toFixed(1)}M`
+        : value >= 1000
+        ? `${(value / 1000).toFixed(1)}K`
         : d.toString();
     });
 
@@ -530,8 +534,13 @@ export function TimeSeriesChart({
       .style("pointer-events", "none");
 
     // Tooltip for primary data
+    // For primary data tooltip
+    // For primary data tooltip
+    // Import D3's selection types if not already imported
+
+    // Then in your event handler
     svg
-      .selectAll(".primary-dot")
+      .selectAll<SVGCircleElement, TimeSeriesData>(".primary-dot")
       .on("mouseover", function (event, d) {
         tooltip
           .style("opacity", 1)
@@ -548,12 +557,17 @@ export function TimeSeriesChart({
       });
 
     // Tooltip for metric data
+    // Tooltip for metric data
     svg
       .selectAll(".metric-dot")
       .on("mouseover", function (event, d) {
-        let tooltipContent = `Date: ${d3.timeFormat("%B %Y")(d.date)}<br>${
+        // Type assertion to handle the unknown type
+        const data = d as any;
+
+        let tooltipContent = `Date: ${d3.timeFormat("%B %Y")(data.date)}<br>${
           metricConfig.label
-        }: ${d.value.toLocaleString()}`;
+        }: ${data.value.toLocaleString()}`;
+
         tooltip
           .style("opacity", 1)
           .html(tooltipContent)
@@ -640,10 +654,7 @@ export function TimeSeriesChart({
             </Tabs>
           </div>
 
-          <div
-            ref={chartRef}
-            className="w-full h-96 bg-white p-4"
-          ></div>
+          <div ref={chartRef} className="w-full h-96 bg-white p-4"></div>
         </div>
       )}
     </div>
