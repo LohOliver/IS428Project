@@ -25,7 +25,6 @@ interface TimeSeriesChartProps {
   apiUrl?: string;
   selectedDate?: string;
   cutoffDate?: string; // Added optional prop for customizing cutoff date
-  onCountryClick?: (countryName: string, date: string) => void;
 }
 
 const METRIC_CONFIGS = {
@@ -62,7 +61,6 @@ export function TimeSeriesChart({
   timeSeriesData,
   apiUrl,
   selectedDate,
-  onCountryClick,
   cutoffDate = "2023-01",
   ...props
 }: TimeSeriesChartProps) {
@@ -468,84 +466,17 @@ export function TimeSeriesChart({
         }
         return 4;
       })
-      .attr("fill", "black") // Make dot color stand out
-      .attr("stroke", "white")
+
       .attr("stroke-width", (d) => {
+        // Check if this point matches the selected date
         if (
           highlightDateObj &&
           d3.timeFormat("%Y-%m")(d.date) ===
             d3.timeFormat("%Y-%m")(highlightDateObj)
         ) {
-          return 3;
+          return 3; // Thicker stroke for better visibility
         }
-        return 2;
-      })
-      .attr("cursor", "pointer") // Add pointer cursor to indicate clickable
-      .on("mouseover", function (event, d) {
-        tooltip
-          .style("opacity", 1)
-          .html(
-            `Date: ${d3.timeFormat("%B %Y")(
-              d.date
-            )}<br>Stringency: ${d.value.toFixed(1)}`
-          )
-          .style("left", event.pageX + 10 + "px")
-          .style("top", event.pageY - 28 + "px");
-
-        // Highlight on hover
-        d3.select(this)
-          .transition()
-          .duration(100)
-          .attr("r", (d) => {
-            if (
-              highlightDateObj &&
-              d3.timeFormat("%Y-%m")(d.date) ===
-                d3.timeFormat("%Y-%m")(highlightDateObj)
-            ) {
-              return 10; // Make highlighted points even larger on hover
-            }
-            return 6;
-          });
-      })
-      .on("mouseout", function () {
-        tooltip.style("opacity", 0);
-
-        // Return to normal size
-        d3.select(this)
-          .transition()
-          .duration(100)
-          .attr("r", (d) => {
-            if (
-              highlightDateObj &&
-              d3.timeFormat("%Y-%m")(d.date) ===
-                d3.timeFormat("%Y-%m")(highlightDateObj)
-            ) {
-              return 8;
-            }
-            return 4;
-          });
-      })
-      // Add click handler
-      .on("click", function (event, d) {
-        if (onCountryClick) {
-          // Format the date as YYYY-MM for consistency
-          const clickedDate = d3.timeFormat("%Y-%m")(d.date);
-          console.log(
-            `Dot clicked for ${countryName || country} on ${clickedDate}`
-          );
-
-          // Call the onCountryClick function
-          onCountryClick(countryName || country || "", clickedDate);
-
-          // Visual feedback on click
-          d3.select(this)
-            .transition()
-            .duration(150)
-            .attr("fill", "#FFD700")
-            .transition()
-            .duration(150)
-            .attr("fill", "black");
-        }
+        return 0;
       });
 
     // Add legend
@@ -618,107 +549,20 @@ export function TimeSeriesChart({
 
     // Tooltip for metric data
     svg
-    .selectAll(".metric-dot")
-    .data(
-      filteredMetricData.filter(
-        (d) =>
-          d.value !== null &&
-          !isNaN(d.value) &&
-          yScaleRight(d.value) >= 0 &&
-          yScaleRight(d.value) <= height
-      )
-    )
-    .enter()
-    .append("circle")
-    .attr("class", "metric-dot")
-    .attr("cx", (d) => xScale(d.date))
-    .attr("cy", (d) => yScaleRight(d.value))
-    .attr("r", (d) => {
-      if (
-        highlightDateObj &&
-        d3.timeFormat("%Y-%m")(d.date) ===
-          d3.timeFormat("%Y-%m")(highlightDateObj)
-      ) {
-        return 6;
-      }
-      return 3;
-    })
-    .attr("fill", metricConfig.color)
-    .attr("stroke", "white")
-    .attr("stroke-width", (d) => {
-      if (
-        highlightDateObj &&
-        d3.timeFormat("%Y-%m")(d.date) ===
-          d3.timeFormat("%Y-%m")(highlightDateObj)
-      ) {
-        return 3;
-      }
-      return 1;
-    })
-    .attr("cursor", "pointer") // Add pointer cursor
-    .on("mouseover", function (event, d) {
-      let tooltipContent = `Date: ${d3.timeFormat("%B %Y")(d.date)}<br>${
-        metricConfig.label
-      }: ${d.value.toLocaleString()}`;
-      tooltip
-        .style("opacity", 1)
-        .html(tooltipContent)
-        .style("left", event.pageX + 10 + "px")
-        .style("top", event.pageY - 28 + "px");
-      
-      // Highlight on hover
-      d3.select(this)
-        .transition()
-        .duration(100)
-        .attr("r", (d) => {
-          if (
-            highlightDateObj &&
-            d3.timeFormat("%Y-%m")(d.date) ===
-              d3.timeFormat("%Y-%m")(highlightDateObj)
-          ) {
-            return 8;
-          }
-          return 5;
-        });
-    })
-    .on("mouseout", function () {
-      tooltip.style("opacity", 0);
-      
-      // Return to normal size
-      d3.select(this)
-        .transition()
-        .duration(100)
-        .attr("r", (d) => {
-          if (
-            highlightDateObj &&
-            d3.timeFormat("%Y-%m")(d.date) ===
-              d3.timeFormat("%Y-%m")(highlightDateObj)
-          ) {
-            return 6;
-          }
-          return 3;
-        });
-    })
-    // Add click handler
-    .on("click", function (event, d) {
-      if (onCountryClick) {
-        // Format the date as YYYY-MM for consistency
-        const clickedDate = d3.timeFormat("%Y-%m")(d.date);
-        console.log(`Metric dot clicked for ${countryName || country} on ${clickedDate}`);
-        
-        // Call the onCountryClick function
-        onCountryClick(countryName || country || "", clickedDate);
-        
-        // Visual feedback
-        d3.select(this)
-          .transition()
-          .duration(150)
-          .attr("fill", "#FFD700")
-          .transition()
-          .duration(150)
-          .attr("fill", metricConfig.color);
-      }
-    });
+      .selectAll(".metric-dot")
+      .on("mouseover", function (event, d) {
+        let tooltipContent = `Date: ${d3.timeFormat("%B %Y")(d.date)}<br>${
+          metricConfig.label
+        }: ${d.value.toLocaleString()}`;
+        tooltip
+          .style("opacity", 1)
+          .html(tooltipContent)
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 28 + "px");
+      })
+      .on("mouseout", function () {
+        tooltip.style("opacity", 0);
+      });
 
     // If there's a selected date, only highlight the matching data points with yellow circles
     if (highlightDateObj) {
@@ -796,7 +640,10 @@ export function TimeSeriesChart({
             </Tabs>
           </div>
 
-          <div ref={chartRef} className="w-full h-96 bg-white p-4"></div>
+          <div
+            ref={chartRef}
+            className="w-full h-96 bg-white p-4"
+          ></div>
         </div>
       )}
     </div>
