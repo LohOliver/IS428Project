@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useState } from "react";
-import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
+import { DashboardNavbar } from "../../components/navbar"; // Import the navbar component
 // import ContinentPopulationBar from "@/components/dashboard3/continent-population-bar";
 import HospitalBedsBar from "@/components/dashboard3/hospitals-bed-bar";
 import BedsVsDeathsScatter from "@/components/dashboard3/beds-deaths-scatter";

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WorldMap } from "../../components/dashboard2/stringency-map";
 import { TimeSeriesChart } from "../../components/dashboard2/time-series-chart";
 import { PolicyBreakdown } from "../../components/dashboard2/policy-breakdown";
-import { DashboardNavbar } from "../../components/ui/navbar"; // Import the navbar component
+import { DashboardNavbar } from "../../components/navbar"; // Import the navbar component
 
 // Define the interfaces for our data types
 interface StringencyData {
@@ -76,6 +76,8 @@ export default function Dashboard2() {
   }, [timeRange]);
 
   const handleCountryClick = (countryName: string, date: string) => {
+    console.log(countryName);
+    console.log(date);
     setSelectedCountry(countryName);
     setSelectedDate(date);
   };
@@ -84,15 +86,17 @@ export default function Dashboard2() {
     <div className="flex min-h-screen flex-col">
       {/* Replace the existing header with the DashboardNavbar */}
       <DashboardNavbar />
-      
+
       <main className="flex-1 space-y-4 p-4 md:p-6">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Global Policy Stringency Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Global Policy Stringency Dashboard
+          </h1>
           <p className="text-muted-foreground">
             Analysis of COVID-19 policy measures across countries
           </p>
         </header>
-        
+
         {error && (
           <div
             className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
@@ -101,7 +105,7 @@ export default function Dashboard2() {
             {error}
           </div>
         )}
-        
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-7">
             <CardHeader />
@@ -112,11 +116,10 @@ export default function Dashboard2() {
                     <div className="mb-2 h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-blue-600 mx-auto" />
                     <p>Loading map data...</p>
                   </div>
-    
                 </div>
               ) : (
                 <WorldMap
-                  className="aspect-[4/2] w-full"
+                  className="w-full h-[500px]"
                   onCountryClick={handleCountryClick}
                   timeSeriesData={stringencyData}
                   availableDates={availableDates}
@@ -126,20 +129,25 @@ export default function Dashboard2() {
             </CardContent>
           </Card>
         </div>
-        
-        <div className="grid gap-4 md:grid-cols-2 h-[700px]">
+
+        <div className="grid gap-4 md:grid-cols-2 h-auto">
           <Card>
             <CardHeader>
               <CardTitle>Stringency Evolution: {selectedCountry}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Selected date: {selectedDate}
+              </p>
             </CardHeader>
             <CardContent>
               <TimeSeriesChart
                 country={selectedCountry}
+                countryName={selectedCountry}
                 timeSeriesData={stringencyData}
+                selectedDate={selectedDate}
               />
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>
@@ -148,7 +156,6 @@ export default function Dashboard2() {
             </CardHeader>
             <CardContent>
               <PolicyBreakdown
-                className="h-[600px]"
                 country={selectedCountry}
                 countryName={selectedCountry}
                 selectedDate={selectedDate}

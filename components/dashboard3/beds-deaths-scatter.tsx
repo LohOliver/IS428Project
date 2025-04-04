@@ -20,7 +20,7 @@ export default function HospitalBedsScatter({ selectedRegion }: ContinentPopulat
   const [data, setData] = useState<HospitalBedsDataPoint[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:5002/hospital_beds_vs_death_rate")
+    fetch("https://is428project.onrender.com/hospital_beds_vs_death_rate")
       .then((res) => res.json())
       .then((fetched: HospitalBedsDataPoint[]) => setData(fetched));
   }, []);

@@ -14,7 +14,7 @@ export default function HospitalBedsBar() {
   const [data, setData] = useState<HospitalBedDataPoint[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:5002/avg_hospital_beds_by_continent")
+    fetch("https://is428project.onrender.com/avg_hospital_beds_by_continent")
       .then((res) => res.json())
       .then((rawData) => {
         const processed: HospitalBedDataPoint[] = Object.entries(rawData)

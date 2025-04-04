@@ -1,8 +1,7 @@
-// First, let's update the CovidWorldMap component to accept a dataType prop
-
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
+import { Feature, FeatureCollection, Geometry } from "geojson";
 
 // Define the type for our country data
 interface CountryData {
@@ -27,10 +26,10 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
 
   // API endpoints for different data types
   const endpoints = {
-    cases: "http://localhost:5002/total_cases_by_country",
-    deaths: "http://localhost:5002/total_deaths_by_country",
-    recovered: "http://localhost:5002/total_recovered_by_country",
-    vaccinated: "http://localhost:5002/total_vaccinated_by_country",
+    cases: "https://is428project.onrender.com/total_cases_by_country",
+    deaths: "https://is428project.onrender.com/total_deaths_by_country",
+    recovered: "https://is428project.onrender.com/total_recovered_by_country",
+    vaccinated: "https://is428project.onrender.com/total_vaccinated_by_country",
   };
 
   useEffect(() => {
@@ -105,7 +104,6 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
       );
 
-      // Convert TopoJSON to GeoJSON
       const countries = feature(worldData, worldData.objects.countries);
 
       // Get country names from topology data
@@ -129,7 +127,6 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         "Bosnia and Herzegovina": "Bosnia and Herz.",
         "North Macedonia": "Macedonia",
         "Dominican Republic": "Dominican Rep.",
-
         "Equatorial Guinea": "Eq. Guinea",
         // Add more mappings as needed
       };
@@ -166,10 +163,10 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         ...Object.values(filteredData).filter((v) => v > 0)
       );
 
-      // Create a color scale (log scale works better for this kind of data)
-      const colorScale: d3.ScaleLogarithmic<string, string> = d3
-        .scaleLog<string>()
-        .domain([10, maxValue])
+      // Create a linear color scale for probabilities (0 to 1)
+      const colorScale = d3
+        .scaleLinear<string>()
+        .domain([0, maxValue > 1 ? 1 : maxValue]) // Ensure max is not greater than 1
         .range(getColorRangeForDataType(dataType))
         .clamp(true);
 
@@ -181,10 +178,11 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       // Create a path generator
       const path = d3.geoPath().projection(projection);
 
-      // Draw the map
+      // Draw the map - Fixed type annotation for features
       svg
         .selectAll("path")
-        .data(countries.features)
+        // First cast to unknown, then to the expected type with features property
+        .data((countries as unknown as { features: any[] }).features)
         .enter()
         .append("path")
         .attr("d", path)
@@ -205,9 +203,10 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
         .attr("class", "country")
-        .on("mouseover", function (event, d: any) {
+        .on("mouseover", function (event, d: Feature<Geometry>) {
           // Show tooltip
-          const geoName = d.properties.name;
+          const properties = d.properties as any;
+          const geoName = properties.name;
           const ourName = reverseMap[geoName] || geoName;
           const value = filteredData[ourName];
 
@@ -215,7 +214,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
                 <strong>${ourName}</strong><br/>
                 ${getDataTypeLabel(
                   dataType
-                )}: ${value ? value.toLocaleString() : "No data"}
+                )}: ${value ? (value * 100).toFixed(1) + "%" : "No data"}
               `);
         })
         .on("mousemove", function (event) {
@@ -233,16 +232,16 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       const legendWidth = 300;
       const legendHeight = 10;
 
-      // Create legend scales
+      // Create legend scales (linear for probability 0-1)
       const legendScale = d3
-        .scaleLog()
-        .domain([10, maxValue])
+        .scaleLinear()
+        .domain([0, maxValue > 1 ? 1 : maxValue])
         .range([0, legendWidth]);
 
       const legendAxis = d3
         .axisBottom(legendScale)
-        .tickValues(getTickValuesForDataType(dataType, maxValue))
-        .tickFormat(d3.format(".0s"));
+        .tickValues(getTickValuesForProbability(maxValue))
+        .tickFormat((d) => d3.format(".0%")(d as number));
 
       // Create legend container
       const legend = svg
@@ -296,7 +295,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         .attr("x", legendWidth / 2)
         .attr("y", -10)
         .attr("text-anchor", "middle")
-        .text(`COVID-19 ${getDataTypeLabel(dataType)}`);
+        .text(`COVID-19 ${getDataTypeLabel(dataType)} (Probability)`);
     } catch (error) {
       console.error("Error creating map:", error);
       setError(
@@ -327,39 +326,35 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
   function getDataTypeLabel(dataType: CovidDataType): string {
     switch (dataType) {
       case "cases":
-        return "Total Cases";
+        return "Probability of Cases";
       case "deaths":
-        return "Total Deaths";
+        return "Probability of Deaths";
       case "recovered":
-        return "Total Recovered";
+        return "Probability of Recovery";
       case "vaccinated":
-        return "Total Vaccinated";
+        return "Probability of Vaccination";
       default:
-        return "Total Cases";
+        return "Probability";
     }
   }
 
-  // Helper function to get appropriate tick values for each data type
-  function getTickValuesForDataType(
-    dataType: CovidDataType,
-    maxValue: number
-  ): number[] {
-    if (maxValue <= 1000) {
-      return [10, 100, 1000];
+  // Helper function to get appropriate tick values for probability scale (0-1)
+  function getTickValuesForProbability(maxValue: number): number[] {
+    // For probabilities, we want to show appropriate tick marks between 0 and 1
+    if (maxValue <= 0.1) {
+      return [0, 0.02, 0.04, 0.06, 0.08, 0.1];
     }
-    if (maxValue <= 10000) {
-      return [10, 100, 1000, 10000];
+    if (maxValue <= 0.25) {
+      return [0, 0.05, 0.1, 0.15, 0.2, 0.25];
     }
-    if (maxValue <= 100000) {
-      return [10, 100, 1000, 10000, 100000];
+    if (maxValue <= 0.5) {
+      return [0, 0.1, 0.2, 0.3, 0.4, 0.5];
     }
-    if (maxValue <= 1000000) {
-      return [10, 100, 1000, 10000, 100000, 1000000];
+    if (maxValue <= 0.75) {
+      return [0, 0.15, 0.3, 0.45, 0.6, 0.75];
     }
-    if (maxValue <= 10000000) {
-      return [10, 100, 1000, 10000, 100000, 1000000, 10000000];
-    }
-    return [10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000];
+    // Default for values up to 1
+    return [0, 0.2, 0.4, 0.6, 0.8, 1.0];
   }
 
   if (loading) {

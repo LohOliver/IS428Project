@@ -12,7 +12,7 @@ import { fetchCovidData } from "@/lib/api";
 import type { CovidData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { DashboardNavbar } from "../components/ui/navbar";
+import { DashboardNavbar } from "./navbar";
 import CovidWorldMap, { CovidDataType } from "./dashboard1/overview-map";
 import {
   Bar,
@@ -100,12 +100,7 @@ function RegionalComparison({
             data={sortedData}
             layout="vertical"
             margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-            onClick={(data) => {
-              if (data && data.activePayload && data.activePayload[0]) {
-                const clickedRegion = data.activePayload[0].payload.name;
-                onRegionSelect(clickedRegion);
-              }
-            }}
+            // Removed onClick handler
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
@@ -124,11 +119,8 @@ function RegionalComparison({
               dataKey={dataKey}
               fill={getColor()}
               radius={[0, 4, 4, 0]}
-              cursor="pointer"
+              // Removed cursor="pointer"
               strokeWidth={selectedRegion ? 2 : 0}
-              stroke={(entry) =>
-                entry.name === selectedRegion ? "#000" : undefined
-              }
             />
           </BarChart>
         </ResponsiveContainer>
@@ -136,7 +128,6 @@ function RegionalComparison({
     </div>
   );
 }
-
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,10 +150,10 @@ export default function Dashboard() {
         // Fetch top 10 country data for charts
         const [casesRes, deathsRes, recoveredRes, vaccinatedRes] =
           await Promise.all([
-            fetch("http://localhost:5002/top10_countries_by_cases"),
-            fetch("http://localhost:5002/top10_countries_by_deaths"),
-            fetch("http://localhost:5002/top10_countries_by_recovered"),
-            fetch("http://localhost:5002/top10_countries_by_vaccination"),
+            fetch("https://is428project.onrender.com/top10_countries_by_cases"),
+            fetch("https://is428project.onrender.com/top10_countries_by_deaths"),
+            fetch("https://is428project.onrender.com/top10_countries_by_recovered"),
+            fetch("https://is428project.onrender.com/top10_countries_by_vaccination"),
           ]);
 
         const [casesData, deathsData, recoveredData, vaccinatedData] =
@@ -323,7 +314,7 @@ export default function Dashboard() {
           {/* Charts section - Bar chart and Line chart side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[750px]">
             {/* Bar Chart */}
-            <Card >
+            <Card>
               <CardHeader>
                 <CardTitle>Top 10 Countries</CardTitle>
                 <CardDescription>
@@ -353,7 +344,7 @@ export default function Dashboard() {
               </CardHeader>
 
               <CardContent>
-                <div className="h-[700px]">
+                <div className="flex-1 min-w-0">
                   <ContinentCasesChart dataType={dataType} />
                 </div>
               </CardContent>

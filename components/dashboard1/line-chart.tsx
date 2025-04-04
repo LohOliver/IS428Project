@@ -18,10 +18,10 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
 
   // Define endpoints based on data type
   const endpoints: Record<DataType, string> = {
-    cases: "http://localhost:5002/continents_new_cases_per_month",
-    deaths: "http://localhost:5002/continents_new_deaths_per_month",
-    recovered: "http://localhost:5002/continents_estimated_recoveries_per_month",
-    vaccinated: "http://localhost:5002/continents_new_vaccinations_per_month",
+    cases: "https://is428project.onrender.com/continents_new_cases_per_month",
+    deaths: "https://is428project.onrender.com/continents_new_deaths_per_month",
+    recovered: "https://is428project.onrender.com/continents_estimated_recoveries_per_month",
+    vaccinated: "https://is428project.onrender.com/continents_new_vaccinations_per_month",
   };
 
   // Y-axis labels based on data type
@@ -60,6 +60,17 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
       createChart();
     }
   }, [data]);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      if (data) {
+        createChart(); // Recreate chart on resize
+      }
+    };
+  
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [data]);
 
   const createChart = () => {
     // Clear previous chart
@@ -94,13 +105,15 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
     const margin = { top: 40, right: 100, bottom: 80, left: 100 };
     // Add null check for chartRef.current
     const width = (chartRef.current?.clientWidth || 600) - margin.left - margin.right;
-    const height = 500 - margin.top - margin.bottom; // Increased from 320 to 500
+    // const height = 500 - margin.top - margin.bottom; // Increased from 320 to 500
+    const height = chartRef.current?.clientHeight || 400;
 
     // Create SVG
     const svg = d3
       .select(chartRef.current)
       .append("svg")
-      .attr("width", "100%")
+      // .attr("width", "100%")
+      .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -253,7 +266,8 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
 
       {!loading && !error && (
         <div className="w-full h-full">
-          <div ref={chartRef} className="w-full h-full min-h-96" />
+          {/* <div ref={chartRef} className="w-full h-full min-h-96" /> */}
+          <div ref={chartRef} className="w-full h-full min-h-[400px]" />
         </div>
       )}
     </div>

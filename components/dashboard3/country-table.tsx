@@ -1,54 +1,67 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import type { CountryData } from "@/lib/types"
-import { ChevronDown, ChevronUp, Search } from "lucide-react"
+import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import type { CountryData } from "@/lib/types";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 
 interface CountryTableProps {
-  countries: CountryData[]
-  onCountrySelect: (countryCode: string) => void
-  selectedCountry: string | null
+  countries: CountryData[];
+  onCountrySelect: (countryCode: string) => void;
+  selectedCountry: string | null;
 }
 
-export default function CountryTable({ countries, onCountrySelect, selectedCountry }: CountryTableProps) {
-  const [searchTerm, setSearchTerm] = useState("")
+export default function CountryTable({
+  countries,
+  onCountrySelect,
+  selectedCountry,
+}: CountryTableProps) {
+  const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof CountryData
-    direction: "ascending" | "descending"
+    key: keyof CountryData;
+    direction: "ascending" | "descending";
   }>({
     key: "cases",
     direction: "descending",
-  })
+  });
 
   // Filter countries based on search term
-  const filteredCountries = countries.filter((country) => country.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredCountries = countries.filter((country) =>
+    country.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Sort countries based on sort config
   const sortedCountries = [...filteredCountries].sort((a, b) => {
     if (a[sortConfig.key] < b[sortConfig.key]) {
-      return sortConfig.direction === "ascending" ? -1 : 1
+      return sortConfig.direction === "ascending" ? -1 : 1;
     }
     if (a[sortConfig.key] > b[sortConfig.key]) {
-      return sortConfig.direction === "ascending" ? 1 : -1
+      return sortConfig.direction === "ascending" ? 1 : -1;
     }
-    return 0
-  })
+    return 0;
+  });
 
   // Request sort
   const requestSort = (key: keyof CountryData) => {
-    let direction: "ascending" | "descending" = "ascending"
+    let direction: "ascending" | "descending" = "ascending";
     if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending"
+      direction = "descending";
     }
-    setSortConfig({ key, direction })
-  }
+    setSortConfig({ key, direction });
+  };
 
   // Format numbers for display
   const formatNumber = (value: number) => {
-    return value.toLocaleString()
-  }
+    return value.toLocaleString();
+  };
 
   return (
     <div>
@@ -67,7 +80,10 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">
-                <button className="flex items-center" onClick={() => requestSort("name")}>
+                <button
+                  className="flex items-center"
+                  onClick={() => requestSort("name")}
+                >
                   Country
                   {sortConfig.key === "name" &&
                     (sortConfig.direction === "ascending" ? (
@@ -78,7 +94,10 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
                 </button>
               </TableHead>
               <TableHead>
-                <button className="flex items-center" onClick={() => requestSort("cases")}>
+                <button
+                  className="flex items-center"
+                  onClick={() => requestSort("cases")}
+                >
                   Cases
                   {sortConfig.key === "cases" &&
                     (sortConfig.direction === "ascending" ? (
@@ -89,7 +108,10 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
                 </button>
               </TableHead>
               <TableHead>
-                <button className="flex items-center" onClick={() => requestSort("deaths")}>
+                <button
+                  className="flex items-center"
+                  onClick={() => requestSort("deaths")}
+                >
                   Deaths
                   {sortConfig.key === "deaths" &&
                     (sortConfig.direction === "ascending" ? (
@@ -100,7 +122,10 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
                 </button>
               </TableHead>
               <TableHead>
-                <button className="flex items-center" onClick={() => requestSort("recovered")}>
+                <button
+                  className="flex items-center"
+                  onClick={() => requestSort("recovered")}
+                >
                   Recovered
                   {sortConfig.key === "recovered" &&
                     (sortConfig.direction === "ascending" ? (
@@ -111,7 +136,10 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
                 </button>
               </TableHead>
               <TableHead>
-                <button className="flex items-center" onClick={() => requestSort("vaccinated")}>
+                <button
+                  className="flex items-center"
+                  onClick={() => requestSort("vaccinated")}
+                >
                   Vaccinated
                   {sortConfig.key === "vaccinated" &&
                     (sortConfig.direction === "ascending" ? (
@@ -128,7 +156,9 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
               sortedCountries.map((country) => (
                 <TableRow
                   key={country.code}
-                  className={`cursor-pointer ${country.code === selectedCountry ? "bg-muted" : ""}`}
+                  className={`cursor-pointer ${
+                    country.code === selectedCountry ? "bg-muted" : ""
+                  }`}
                   onClick={() => onCountrySelect(country.code)}
                 >
                   <TableCell className="font-medium">{country.name}</TableCell>
@@ -149,6 +179,5 @@ export default function CountryTable({ countries, onCountrySelect, selectedCount
         </Table>
       </div>
     </div>
-  )
+  );
 }
-
