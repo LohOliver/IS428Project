@@ -100,12 +100,7 @@ function RegionalComparison({
             data={sortedData}
             layout="vertical"
             margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-            onClick={(data) => {
-              if (data && data.activePayload && data.activePayload.length > 0) {
-                const clickedRegion = data.activePayload[0].payload.name;
-                onRegionSelect(clickedRegion);
-              }
-            }}
+            // Removed onClick handler
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
@@ -124,11 +119,8 @@ function RegionalComparison({
               dataKey={dataKey}
               fill={getColor()}
               radius={[0, 4, 4, 0]}
-              cursor="pointer"
+              // Removed cursor="pointer"
               strokeWidth={selectedRegion ? 2 : 0}
-              stroke={(entry) =>
-                entry.name === selectedRegion ? "#000" : undefined
-              }
             />
           </BarChart>
         </ResponsiveContainer>
@@ -136,7 +128,6 @@ function RegionalComparison({
     </div>
   );
 }
-
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

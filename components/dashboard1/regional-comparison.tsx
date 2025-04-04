@@ -15,11 +15,11 @@ interface RegionalData {
 interface RegionalComparisonProps {
   data: RegionalData[]
   dataKey: "cases" | "deaths" | "recovered" | "vaccinated"
-  onRegionSelect: (region: string) => void
+  // Removed onRegionSelect from props
   selectedRegion: string | null
 }
 
-function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: RegionalComparisonProps) {
+function RegionalComparison({ data, dataKey, selectedRegion }: RegionalComparisonProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -121,7 +121,7 @@ function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: R
       .selectAll("line")
       .attr("stroke-dasharray", "3,3")
     
-    // Add bars
+    // Add bars - Removed click functionality
     const bars = svg.selectAll(".bar")
       .data(sortedData)
       .enter()
@@ -134,12 +134,9 @@ function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: R
       .attr("fill", getColor())
       .attr("rx", 0)
       .attr("ry", 0)
-      .attr("cursor", "pointer")
       .attr("stroke", d => d.name === selectedRegion ? "#000" : "none")
       .attr("stroke-width", d => d.name === selectedRegion ? 2 : 0)
-      .on("click", (event, d) => {
-        onRegionSelect(d.name)
-      })
+      // Removed the click event handler
     
     // Create tooltip
     const tooltip = d3.select(containerRef.current)
@@ -180,7 +177,7 @@ function RegionalComparison({ data, dataKey, onRegionSelect, selectedRegion }: R
     return () => {
       d3.select(containerRef.current).select(".tooltip").remove()
     }
-  }, [data, dataKey, selectedRegion, onRegionSelect])
+  }, [data, dataKey, selectedRegion]) // Removed onRegionSelect from dependencies
 
   return (
     <div className="w-full pt-4" ref={containerRef}>
@@ -282,9 +279,7 @@ export default function CovidDashboard() {
       })
   }, [allData, currentTab])
   
-  const handleRegionSelect = (region: string) => {
-    setSelectedRegion(prev => prev === region ? null : region)
-  }
+  // Removed handleRegionSelect function since it's no longer needed
   
   const handleTabChange = (value: string) => {
     setCurrentTab(value as "cases" | "deaths" | "recovered" | "vaccinated")
@@ -355,14 +350,15 @@ export default function CovidDashboard() {
           <RegionalComparison 
             data={filteredData}
             dataKey={currentTab}
-            onRegionSelect={handleRegionSelect}
             selectedRegion={selectedRegion}
+            // Removed onRegionSelect prop
           />
         </div>
       </Tabs>
       
       <div className="text-sm text-gray-500 mt-4">
-        Click on a bar to select a country for more details.
+        {/* Removed instruction about clicking bars */}
+        Showing top 10 countries based on {getTabTitle().toLowerCase()}.
       </div>
     </div>
   )
