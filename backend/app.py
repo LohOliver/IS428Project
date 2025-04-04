@@ -403,7 +403,7 @@ def get_top10_countries_by_cases():
     # Query to get the maximum total cases for each country
     max_cases_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.total_cases).label("max_total_cases")
+        (func.max(CovidData.total_cases) / func.max(CovidData.population)).label("max_total_cases")
     ).filter(
         CovidData.total_cases.isnot(None),  # Filter out NULL values
         ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
@@ -457,7 +457,7 @@ def get_top10_countries_by_deaths():
     # Query to get the maximum total deaths for each country
     max_deaths_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.total_deaths).label("max_total_deaths")
+        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)).label("max_total_deaths")
     ).filter(
         CovidData.total_deaths.isnot(None),  # Filter out NULL values
         ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
@@ -523,7 +523,7 @@ def get_top10_countries_by_recovered():
     # Query to get the maximum recovered value for each country
     max_recovered_query = db.session.query(
         recovered_subquery.c.location,
-        func.max(recovered_subquery.c.recovered).label("max_recovered")
+        (func.max(recovered_subquery.c.recovered) / func.max(CovidData.total_cases)).label("max_recovered")
     ).group_by(
         recovered_subquery.c.location
     ).order_by(
@@ -573,7 +573,7 @@ def get_top10_countries_by_vaccination():
     # Query to get the maximum vaccination count for each country
     max_vaccination_query = db.session.query(
         CovidData.location,
-        func.max(CovidData.people_fully_vaccinated).label("max_vaccinated")
+        (func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population)).label("max_vaccinated")
     ).filter(
         CovidData.people_fully_vaccinated.isnot(None),
         ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
