@@ -1142,7 +1142,8 @@ def get_hospital_beds_vs_death_rate():
         func.round(func.avg(CovidData.hospital_beds_per_thousand), 3)
     ).group_by(CovidData.continent, CovidData.location).filter(
         CovidData.total_deaths_per_million != "",
-        CovidData.hospital_beds_per_thousand != ""
+        CovidData.hospital_beds_per_thousand != "",
+        CovidData.location != "World"
     ).all()
 
     result = [{"continent" : continent, "country": location, "avg_deaths" : int(avg_deaths), "avg_beds": avg_beds} for continent, location, avg_deaths, avg_beds in avg_deaths_and_beds]
@@ -1157,7 +1158,8 @@ def get_handwashing_facilities_vs_cases():
         func.round(func.avg(CovidData.total_cases_per_million)).cast(Integer)
     ).group_by(CovidData.continent, CovidData.location).filter(
         CovidData.handwashing_facilities != "",
-        CovidData.total_cases_per_million != ""
+        CovidData.total_cases_per_million != "",
+        CovidData.location != "World"
     ).all()
 
     result = [{"continent": continent, 
