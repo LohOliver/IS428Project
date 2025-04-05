@@ -248,7 +248,7 @@ export function WorldMap({
     const legendWidth = 200;
     const legendHeight = 15;
     const legendX = width - legendWidth - 20;
-    const legendY = height - 70;
+    const legendY = height - 40;
 
     const legendScale = d3
       .scaleLinear()
@@ -310,33 +310,6 @@ export function WorldMap({
       .attr("font-size", "12px")
       .attr("fill", "#334155")
       .text("Stringency Index");
-
-    // Add title with the current date
-    const titleGroup = svg.append("g").attr("class", "map-title");
-
-    titleGroup
-      .append("text")
-      .attr("x", width / 2)
-      .attr("y", 25)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "18px")
-      .attr("font-weight", "bold")
-      .attr("fill", "#1e293b") // Darker text for better contrast
-      .text("COVID-19 Stringency Index");
-
-    titleGroup
-      .append("text")
-      .attr("x", width / 2)
-      .attr("y", 50)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "14px")
-      .attr("fill", "#64748b") // Subtitle in a lighter color
-      .text(
-        `${new Date(currentDate).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-        })}`
-      );
 
     // Draw the map paths inside the group with improved styling
     mapGroup
@@ -593,7 +566,7 @@ export function WorldMap({
   };
 
   return (
-    <div className={`${className} relative rounded-lg shadow-lg bg-white p-4 `}>
+    <div className={`${className} relative  bg-white p-4 `}>
       {loading ? (
         <div className="flex items-center justify-center h-[650px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -641,20 +614,6 @@ export function WorldMap({
                   ))}
               </select>
             </div>
-          </div>
-
-          {/* Find Singapore button */}
-          <div className="absolute top-20 left-4 z-10">
-            <button
-              onClick={() => {
-                setSelectedCountry("Singapore");
-                onCountryClick("Singapore", availableDates[currentDateIndex]);
-                zoomToCountry("Singapore");
-              }}
-              className="py-1 px-3 bg-blue-100 text-blue-700 rounded border border-blue-200 text-sm font-medium hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Find Singapore
-            </button>
           </div>
 
           <div className="absolute top-4 right-4 flex flex-col gap-1 z-10">

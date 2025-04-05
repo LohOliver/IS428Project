@@ -118,13 +118,18 @@ export default function Dashboard2() {
                   </div>
                 </div>
               ) : (
-                <WorldMap
-                  className="w-full h-[500px]"
-                  onCountryClick={handleCountryClick}
-                  timeSeriesData={stringencyData}
-                  availableDates={availableDates}
-                  maxStringency={100}
-                />
+                <div>
+                  <CardTitle className="text-center">
+                    COVID-19 Stringency Map
+                  </CardTitle>
+                  <WorldMap
+                    className="w-full h-[500px]"
+                    onCountryClick={handleCountryClick}
+                    timeSeriesData={stringencyData}
+                    availableDates={availableDates}
+                    maxStringency={100}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
