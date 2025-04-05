@@ -14,6 +14,16 @@ interface Policy {
   policy_subcategory: string;
 }
 
+interface AggregatedPolicy {
+  category: string;
+  subcategory: string | null;
+  startDate: Date;
+  endDate: Date;
+  count: number;
+  countries: Set<string>;
+  countryNames: Set<string>;
+}
+
 interface FilterState {
   countries: string[];
   category: string | null;
@@ -35,9 +45,14 @@ export default function PolicyTimelineChart() {
   // State for available countries
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
   
+  // State for selected policies (for detail view)
+  const [selectedPolicies, setSelectedPolicies] = useState<Policy[]>([]);
+  const [showDetails, setShowDetails] = useState<boolean>(false);
+  const [selectedGroupName, setSelectedGroupName] = useState<string>("");
+  
   // State for filters
   const [filters, setFilters] = useState<FilterState>({
-    countries: ['SGP'], // Default to USA
+    countries: ['SGP'], // Default to Singapore
     category: null,
     subcategory: null,
     startDate: null,
@@ -55,7 +70,6 @@ export default function PolicyTimelineChart() {
       setError(null);
       
       try {
-        // Start with USA since we have that endpoint
         const response = await fetch('https://is428project.onrender.com/policies/SGP');
         
         if (!response.ok) {
@@ -148,11 +162,64 @@ export default function PolicyTimelineChart() {
     return true;
   });
   
-  // Get paginated policies
+  // AGGREGATION FUNCTION: Group policies by category/subcategory
+  const aggregatedPolicies = React.useMemo(() => {
+    // Define grouping field based on filters
+    const groupingField = filters.category ? 'policy_subcategory' : 'policy_category';
+    
+    // Create a map to hold aggregated policies
+    const aggregatedMap = new Map<string, AggregatedPolicy>();
+    
+    // Process each policy
+    filteredPolicies.forEach(policy => {
+      const groupKey = policy[groupingField];
+      const startDate = new Date(policy.effective_start_date);
+      const endDate = new Date(policy.actual_end_date);
+      
+      if (aggregatedMap.has(groupKey)) {
+        // Update existing entry
+        const existing = aggregatedMap.get(groupKey)!;
+        
+        // Update start/end dates if needed
+        if (startDate < existing.startDate) existing.startDate = startDate;
+        if (endDate > existing.endDate) existing.endDate = endDate;
+        
+        // Increment count and add country
+        existing.count += 1;
+        existing.countries.add(policy.authorizing_country_iso);
+        existing.countryNames.add(policy.authorizing_country_name);
+      } else {
+        // Create new entry
+        aggregatedMap.set(groupKey, {
+          category: policy.policy_category,
+          subcategory: policy.policy_subcategory,
+          startDate,
+          endDate,
+          count: 1,
+          countries: new Set([policy.authorizing_country_iso]),
+          countryNames: new Set([policy.authorizing_country_name])
+        });
+      }
+    });
+    
+    // Convert map to array and sort
+    return Array.from(aggregatedMap.values())
+      .sort((a, b) => {
+        if (filters.category) {
+          // If category filter is applied, sort by subcategory
+          return (a.subcategory || '').localeCompare(b.subcategory || '');
+        } else {
+          // Otherwise sort by category
+          return a.category.localeCompare(b.category);
+        }
+      });
+  }, [filteredPolicies, filters.category]);
+  
+  // Get paginated aggregated policies
   const startIndex = (page - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedPolicies = filteredPolicies.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(filteredPolicies.length / ITEMS_PER_PAGE);
+  const paginatedPolicies = aggregatedPolicies.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(aggregatedPolicies.length / ITEMS_PER_PAGE);
   
   // Handle filter changes
   const handleCountryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -226,7 +293,7 @@ export default function PolicyTimelineChart() {
     }
   };
   
-  // Draw the timeline chart using D3
+  // Draw the timeline chart using D3 - COMPLETELY REVISED
   useEffect(() => {
     if (!svgRef.current || paginatedPolicies.length === 0) return;
     
@@ -239,7 +306,7 @@ export default function PolicyTimelineChart() {
     // Chart dimensions
     const margin = { top: 40, right: 30, bottom: 50, left: 200 };
     const width = svgRef.current.clientWidth - margin.left - margin.right;
-    const height = Math.min(600, Math.max(300, paginatedPolicies.length * 30)) - margin.top - margin.bottom;
+    const height = Math.min(600, Math.max(300, paginatedPolicies.length * 40)) - margin.top - margin.bottom;
     
     // Create chart container
     const chart = svg
@@ -248,20 +315,13 @@ export default function PolicyTimelineChart() {
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
     
-    // Parse dates - all policies should have end dates based on our filter
-    const parsedPolicies = paginatedPolicies.map(policy => ({
-      ...policy,
-      parsed_start_date: new Date(policy.effective_start_date),
-      parsed_end_date: new Date(policy.actual_end_date)
-    }));
-    
     // Find min and max dates for x-axis
     const minDate = filters.startDate || 
-                    d3.min(parsedPolicies, d => d.parsed_start_date) || 
+                    d3.min(paginatedPolicies, d => d.startDate) || 
                     new Date("2020-01-01");
     
     const maxDate = filters.endDate || 
-                   d3.max(parsedPolicies, d => d.parsed_end_date) || 
+                   d3.max(paginatedPolicies, d => d.endDate) || 
                    new Date();
     
     // Add a buffer to the start and end dates if no filters are set
@@ -278,20 +338,20 @@ export default function PolicyTimelineChart() {
       .domain([startDate, endDate])
       .range([0, width]);
     
-    // Group by categories or subcategories for y-axis based on filters
-    const groupingField = filters.category ? 'policy_subcategory' : 'policy_category';
-    
-    // Get unique y-axis labels from current page
-    const uniqueYLabels = [...new Set(parsedPolicies.map(p => p[groupingField]))].sort();
+    // Set the domain for y-axis - either subcategories or categories
+    const yDomain = paginatedPolicies.map(p => 
+      filters.category ? (p.subcategory || 'Unknown') : p.category
+    );
     
     const yScale = d3.scaleBand()
-      .domain(uniqueYLabels)
+      .domain(yDomain)
       .range([0, height])
       .padding(0.2);
     
-    // Color scale by country
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
-      .domain(availableCountries);
+    // Color scale based on policy count
+    const maxCount = d3.max(paginatedPolicies, d => d.count) || 1;
+    const colorScale = d3.scaleSequential(d3.interpolateBlues)
+      .domain([0, maxCount]);
     
     // X axis
     chart.append("g")
@@ -325,35 +385,34 @@ export default function PolicyTimelineChart() {
       .style("text-anchor", "middle")
       .text(filters.category ? "Policy Subcategories" : "Policy Categories");
     
-    // Draw policy bars
+    // Draw aggregated policy bars
     chart.selectAll(".policy-bar")
-      .data(parsedPolicies)
+      .data(paginatedPolicies)
       .enter()
       .append("rect")
       .attr("class", "policy-bar")
       .attr("y", d => {
-        const label = d[groupingField];
-        return (yScale(label) || 0) + yScale.bandwidth() / 4;
+        const label = filters.category ? (d.subcategory || 'Unknown') : d.category;
+        return (yScale(label) || 0) + yScale.bandwidth() * 0.05;
       })
-      .attr("x", d => xScale(d.parsed_start_date))
-      .attr("width", d => {
-        return Math.max(xScale(d.parsed_end_date) - xScale(d.parsed_start_date), 5); // Minimum width of 5px
-      })
-      .attr("height", yScale.bandwidth() / 2)
-      .attr("rx", 4) // Rounded corners
-      .attr("ry", 4)
-      .style("fill", d => colorScale(d.authorizing_country_iso) as string)
+      .attr("x", d => xScale(d.startDate))
+      .attr("width", d => Math.max(xScale(d.endDate) - xScale(d.startDate), 5))
+      .attr("height", yScale.bandwidth() * 0.9)
+      .attr("rx", 6) // Rounded corners
+      .attr("ry", 6)
+      .style("fill", d => colorScale(d.count))
       .style("stroke", "#333")
       .style("stroke-width", 1)
-      .style("opacity", 0.8)
       .on("mouseover", function(event, d) {
         d3.select(this)
-          .style("opacity", 1)
           .style("stroke-width", 2);
         
         // Format dates
-        const startFormatted = d3.timeFormat("%b %d, %Y")(d.parsed_start_date);
-        const endFormatted = d3.timeFormat("%b %d, %Y")(d.parsed_end_date);
+        const startFormatted = d3.timeFormat("%b %d, %Y")(d.startDate);
+        const endFormatted = d3.timeFormat("%b %d, %Y")(d.endDate);
+        
+        // Format countries list
+        const countriesList = Array.from(d.countryNames).join(", ");
         
         // Position and show tooltip
         tooltip
@@ -361,96 +420,156 @@ export default function PolicyTimelineChart() {
           .style("left", `${event.pageX + 10}px`)
           .style("top", `${event.pageY - 28}px`)
           .html(`
-            <div class="font-bold">${d.policy_subcategory}</div>
-            <div><span class="font-semibold">Country:</span> ${d.authorizing_country_name}</div>
-            <div><span class="font-semibold">Category:</span> ${d.policy_category}</div>
-            <div><span class="font-semibold">Subcategory:</span> ${d.policy_subcategory}</div>
+            <div class="font-bold">${filters.category ? (d.subcategory || 'Unknown') : d.category}</div>
+            <div><span class="font-semibold">Policies:</span> ${d.count}</div>
+            <div><span class="font-semibold">Countries:</span> ${countriesList}</div>
             <div><span class="font-semibold">Start:</span> ${startFormatted}</div>
             <div><span class="font-semibold">End:</span> ${endFormatted}</div>
+            ${!filters.category ? `<div><span class="font-semibold">Category:</span> ${d.category}</div>` : ''}
+            ${filters.category ? `<div><span class="font-semibold">Subcategory:</span> ${d.subcategory || 'Unknown'}</div>` : ''}
+            <div class="mt-1 text-blue-600 italic">Click to view individual policies</div>
           `);
       })
       .on("mouseout", function() {
         d3.select(this)
-          .style("opacity", 0.8)
           .style("stroke-width", 1);
         
         tooltip.style("opacity", 0);
+      })
+      .on("click", function(event, d) {
+        // Get the grouping key - either category or subcategory
+        const groupKey = filters.category ? 'policy_subcategory' : 'policy_category';
+        const groupValue = filters.category ? d.subcategory : d.category;
+        
+        // Filter policies to show only those in this group
+        const groupPolicies = filteredPolicies.filter(p => p[groupKey] === groupValue);
+        
+        // Set the selected policies for detail view
+        setSelectedPolicies(groupPolicies);
+        setSelectedGroupName(filters.category ? (d.subcategory || 'Unknown') : d.category);
+        setShowDetails(true);
       });
     
-    // Add policy subcategory text on bars if there's enough space
-    chart.selectAll(".policy-label")
-      .data(parsedPolicies)
+    // Add labels with count
+    chart.selectAll(".count-label")
+      .data(paginatedPolicies)
       .enter()
       .append("text")
-      .attr("class", "policy-label")
+      .attr("class", "count-label")
       .attr("y", d => {
-        const label = d[groupingField];
-        return (yScale(label) || 0) + yScale.bandwidth() / 1.6;
+        const label = filters.category ? (d.subcategory || 'Unknown') : d.category;
+        return (yScale(label) || 0) + yScale.bandwidth() / 2 + 5;
       })
       .attr("x", d => {
-        return xScale(d.parsed_start_date) + 5; // Add a small padding
+        const barWidth = xScale(d.endDate) - xScale(d.startDate);
+        return xScale(d.startDate) + barWidth / 2;
       })
-      .text(d => {
-        const width = xScale(d.parsed_end_date) - xScale(d.parsed_start_date);
-        // Only show text if bar is wide enough
-        return width > 80 ? d.policy_subcategory : "";
-      })
-      .style("font-size", "10px")
-      .style("fill", "white")
+      .text(d => d.count > 1 ? `${d.count} policies` : "1 policy")
+      .attr("text-anchor", "middle")
+      .style("fill", d => d.count > maxCount/2 ? "white" : "black")
+      .style("font-size", "11px")
+      .style("font-weight", "bold")
       .style("pointer-events", "none") // Prevent text from interfering with mouse events
       .each(function(d) {
-        // Truncate text if too long for the bar
-        const textElement = d3.select(this);
-        const availableWidth = xScale(d.parsed_end_date) - xScale(d.parsed_start_date) - 10;
-        
-        if (this.getComputedTextLength() > availableWidth) {
-          let text = d.policy_subcategory;
-          while (text.length > 3 && this.getComputedTextLength() > availableWidth) {
-            text = text.slice(0, -1);
-            textElement.text(text + "...");
-          }
-          if (text.length <= 3) {
-            textElement.text("");
-          }
+        // Hide text if bar is too small
+        const barWidth = xScale(d.endDate) - xScale(d.startDate);
+        if (barWidth < 60) {
+          d3.select(this).style("opacity", 0);
+        }
+      });
+    
+    // Add category/subcategory labels
+    chart.selectAll(".category-label")
+      .data(paginatedPolicies)
+      .enter()
+      .append("text")
+      .attr("class", "category-label")
+      .attr("y", d => {
+        const label = filters.category ? (d.subcategory || 'Unknown') : d.category;
+        return (yScale(label) || 0) + yScale.bandwidth() / 2 - 5;
+      })
+      .attr("x", d => {
+        const barWidth = xScale(d.endDate) - xScale(d.startDate);
+        return xScale(d.startDate) + barWidth / 2;
+      })
+      .text(d => filters.category ? (d.subcategory || 'Unknown') : d.category)
+      .attr("text-anchor", "middle")
+      .style("fill", d => d.count > maxCount/2 ? "white" : "black")
+      .style("font-size", "11px")
+      .style("pointer-events", "none") // Prevent text from interfering with mouse events
+      .each(function(d) {
+        // Hide text if bar is too small
+        const barWidth = xScale(d.endDate) - xScale(d.startDate);
+        if (barWidth < 100) {
+          d3.select(this).style("opacity", 0);
         }
       });
       
-    // Add legend for countries
-    const legendCountries = [...new Set(parsedPolicies.map(p => p.authorizing_country_iso))].sort();
+    // Add legend for policy count
+    const legendData = [1, Math.ceil(maxCount/3), Math.ceil(2*maxCount/3), maxCount];
+    const legendWidth = 200;
+    const legendHeight = 20;
     
-    if (legendCountries.length > 0) {
-      const legend = chart.append("g")
-        .attr("transform", `translate(${width - 150}, -30)`);
+    const legendX = width - legendWidth;
+    const legendY = -35;
+    
+    // Legend container
+    const legend = chart.append("g")
+      .attr("transform", `translate(${legendX},${legendY})`);
+    
+    // Legend title
+    legend.append("text")
+      .attr("x", legendWidth / 2)
+      .attr("y", -5)
+      .attr("text-anchor", "middle")
+      .style("font-size", "11px")
+      .text("Number of Policies");
+    
+    // Legend gradient
+    const legendScale = d3.scaleLinear()
+      .domain([1, maxCount])
+      .range([0, legendWidth]);
+    
+    // Add color gradient rectangles
+    legendData.forEach((value, i) => {
+      if (i < legendData.length - 1) {
+        const startX = legendScale(value);
+        const endX = legendScale(legendData[i + 1]);
+        const rectWidth = endX - startX;
         
-      legend.selectAll(".legend-item")
-        .data(legendCountries)
-        .enter()
-        .append("rect")
-        .attr("class", "legend-item")
-        .attr("x", 0)
-        .attr("y", (d, i) => i * 20)
-        .attr("width", 15)
-        .attr("height", 15)
-        .style("fill", d => colorScale(d) as string);
-        
-      legend.selectAll(".legend-text")
-        .data(legendCountries)
-        .enter()
-        .append("text")
-        .attr("class", "legend-text")
-        .attr("x", 20)
-        .attr("y", (d, i) => i * 20 + 12)
-        .text(d => d)
-        .style("font-size", "12px");
-    }
-  }, [paginatedPolicies, filters.category, availableCountries, filters.startDate, filters.endDate]);
+        legend.append("rect")
+          .attr("x", startX)
+          .attr("y", 0)
+          .attr("width", rectWidth)
+          .attr("height", legendHeight)
+          .style("fill", colorScale(value));
+      }
+    });
+    
+    // Add ticks and labels
+    legendData.forEach(value => {
+      legend.append("line")
+        .attr("x1", legendScale(value))
+        .attr("x2", legendScale(value))
+        .attr("y1", legendHeight)
+        .attr("y2", legendHeight + 4)
+        .style("stroke", "#333");
+      
+      legend.append("text")
+        .attr("x", legendScale(value))
+        .attr("y", legendHeight + 15)
+        .attr("text-anchor", "middle")
+        .style("font-size", "10px")
+        .text(value);
+    });
+    
+  }, [paginatedPolicies, filters.category, filters.startDate, filters.endDate]);
   
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       // Redraw chart on window resize
-      const currentPolicies = paginatedPolicies;
-      if (currentPolicies.length > 0 && svgRef.current) {
+      if (paginatedPolicies.length > 0 && svgRef.current) {
         d3.select(svgRef.current).selectAll("*").remove();
         // The chart will be redrawn by the other useEffect
       }
@@ -585,8 +704,8 @@ export default function PolicyTimelineChart() {
       {/* Results summary */}
       <div className="flex justify-between items-center bg-gray-50 p-2 rounded">
         <div className="text-sm">
-          {filteredPolicies.length} policies match your filters
-          {filteredPolicies.length > 0 ? ` (showing ${startIndex + 1}-${Math.min(endIndex, filteredPolicies.length)} of ${filteredPolicies.length})` : ''}
+          {filteredPolicies.length} individual policies in {aggregatedPolicies.length} groups
+          {aggregatedPolicies.length > 0 ? ` (showing ${startIndex + 1}-${Math.min(endIndex, aggregatedPolicies.length)} of ${aggregatedPolicies.length} groups)` : ''}
         </div>
         
         {/* Pagination controls */}
@@ -636,6 +755,71 @@ export default function PolicyTimelineChart() {
       {filteredPolicies.length === 0 && !loading && (
         <div className="text-center p-4 border rounded bg-gray-50">
           No policies with end dates match the selected filters.
+        </div>
+      )}
+      
+      {/* Individual Policies Section */}
+      {showDetails && (
+        <div className="mt-6 border rounded bg-white">
+          <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h2 className="text-lg font-bold">
+              Policies in {selectedGroupName}
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({selectedPolicies.length} policies)
+              </span>
+            </h2>
+            <button 
+              onClick={() => setShowDetails(false)}
+              className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+            >
+              Hide details
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Country
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subcategory
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Start Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    End Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {selectedPolicies.map((policy, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {policy.authorizing_country_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {policy.policy_category}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {policy.policy_subcategory}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {new Date(policy.effective_start_date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {new Date(policy.actual_end_date).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
