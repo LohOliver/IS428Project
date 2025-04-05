@@ -148,6 +148,7 @@ export default function Dashboard() {
         setCovidData(data);
 
         // Fetch top 10 country data for charts
+        console.log("start loading");
         const [casesRes, deathsRes, recoveredRes, vaccinatedRes] =
           await Promise.all([
             fetch("https://is428project.onrender.com/top10_countries_by_cases"),
@@ -155,7 +156,7 @@ export default function Dashboard() {
             fetch("https://is428project.onrender.com/top10_countries_by_recovered"),
             fetch("https://is428project.onrender.com/top10_countries_by_vaccination"),
           ]);
-
+        console.log("end loading");
         const [casesData, deathsData, recoveredData, vaccinatedData] =
           await Promise.all([
             casesRes.json(),
