@@ -26,6 +26,24 @@ db = SQLAlchemy(app)
 
 CORS(app)
 
+excluded_locations = [
+        # Continents and global
+        'World', 'Europe', 'North America', 'South America', 'Asia', 
+        'Africa', 'Oceania', 
+        
+        # Regional groups
+        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
+        
+        # Income-based categories
+        'High income', 'High-income countries',
+        'Upper middle income', 'Upper-middle-income countries',
+        'Lower middle income', 'Lower-middle-income countries',
+        'Low-income countries',
+        'Low income',
+        
+        # Other
+        'International'
+    ]
 
 class CovidData(db.Model):
     __tablename__ = 'covid_data'
@@ -370,26 +388,7 @@ def get_top10_countries_by_cases():
             "country_name": max_total_cases_value,
             ...
         }
-    """
-    # List of known regions/continents/world aggregates to exclude
-    excluded_locations = [
-        # Continents and global
-        'World', 'Europe', 'North America', 'South America', 'Asia', 
-        'Africa', 'Oceania', 
-        
-        # Regional groups
-        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
-        
-        # Income-based categories
-        'High income', 'High-income countries',
-        'Upper middle income', 'Upper-middle-income countries',
-        'Lower middle income', 'Lower-middle-income countries',
-        'Low-income countries',
-        'Low income',
-        
-        # Other
-        'International'
-    ]
+    """    
     
     # Query to get the maximum total cases for each country
     max_cases_query = db.session.query(
@@ -424,26 +423,6 @@ def get_top10_countries_by_deaths():
             ...
         }
     """
-    # List of known regions/continents/world aggregates to exclude
-    excluded_locations = [
-        # Continents and global
-        'World', 'Europe', 'North America', 'South America', 'Asia', 
-        'Africa', 'Oceania', 
-        
-        # Regional groups
-        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
-        
-        # Income-based categories
-        'High income', 'High-income countries',
-        'Upper middle income', 'Upper-middle-income countries',
-        'Lower middle income', 'Lower-middle-income countries',
-        'Low-income countries',
-        'Low income',
-        
-        # Other
-        'International'
-    ]
-    
     # Query to get the maximum total deaths for each country
     max_deaths_query = db.session.query(
         CovidData.location,
@@ -485,25 +464,6 @@ def get_top10_countries_by_vaccination():
             ...
         }
     """
-    # List of known regions/continents/world aggregates to exclude
-    excluded_locations = [
-        # Continents and global
-        'World', 'Europe', 'North America', 'South America', 'Asia', 
-        'Africa', 'Oceania', 
-        
-        # Regional groups
-        'European Union', 'European Union (27)', 'Commonwealth', 'NATO', 'G20',
-        
-        # Income-based categories
-        'High income', 'High-income countries',
-        'Upper middle income', 'Upper-middle-income countries',
-        'Lower middle income', 'Lower-middle-income countries',
-        'Low-income countries',
-        'Low income',
-        
-        # Other
-        'International'
-    ]
     
     # Query to get the maximum vaccination count for each country
     max_vaccination_query = db.session.query(
@@ -1211,6 +1171,89 @@ def get_policies_for_country(country_name):
     } for policy in policies]
     
     # Return the results
+    return jsonify(result)
+
+@app.route('/all_policies', methods=['GET'])
+def get_all_policies():
+    policies_query = db.session.query(
+        PolicyData.authorizing_country_name,
+        PolicyData.policy_law_name,
+        PolicyData.effective_start_date
+    ).all()
+    result = [{"country": country, "policy_name": policy_name, "start_date": start_date} for country, policy_name, start_date in policies_query]
+    
+    return jsonify(result)
+
+@app.route('/deaths_by_month_and_country', methods=['GET'])
+def get_deaths_by_month_and_country():
+    deaths_query = db.session.query(
+        CovidData.location,  # Group by country
+        func.date_format(CovidData.date, "%Y-%m").label("year_month"),  # Extract year and month
+        func.max(CovidData.total_deaths)
+    ).filter(
+        ~CovidData.location.in_(excluded_locations)
+    ).group_by(
+        CovidData.location, "year_month"
+    ).order_by(CovidData.location, "year_month").all()
+
+    # Format the results to group by country and year-month
+    result = {}
+    for location, year_month, total_deaths in deaths_query:
+        if location not in result:
+            result[location] = {}
+        result[location][year_month] = int(total_deaths) if total_deaths else 0
+
+    return jsonify(result)
+
+
+@app.route('/vaccinations_by_month_and_country', methods=['GET'])
+def get_vaccinations_by_month_and_country():
+    vaccinations_query = db.session.query(
+        CovidData.location,  # Group by country
+        func.date_format(CovidData.date, "%Y-%m").label("year_month"),  # Extract year and month
+        func.max(CovidData.total_vaccinations)
+    ).filter(
+        ~CovidData.location.in_(excluded_locations)
+    ).group_by(
+        CovidData.location, "year_month"
+    ).order_by(CovidData.location, "year_month").all()
+
+    # Format the results to group by country and year-month
+    result = {}
+    for location, year_month, total_vaccinations in vaccinations_query:
+        if location not in result:
+            result[location] = {}
+        result[location][year_month] = total_vaccinations if total_vaccinations else 0
+
+    return jsonify(result)
+
+@app.route('/recovered_by_month_and_country', methods=['GET'])
+def get_recovered_by_month_and_country():
+    query = db.session.query(
+        CovidData.location,
+        func.date_format(CovidData.date, "%Y-%m").label("year_month"),  # Format date as Year-Month
+        func.max(CovidData.total_cases).label("total_cases"),
+        func.max(CovidData.total_deaths).label("total_deaths")
+    ).filter(
+        ~CovidData.location.in_(excluded_locations)  # Exclude non-country locations
+    ).group_by(
+        CovidData.location,
+        func.date_format(CovidData.date, "%Y-%m")  # Group by location and year-month
+    ).all()
+
+    # Initialize a dictionary to hold the result
+    result = {}
+
+    # Iterate over the query result to calculate recovered cases and structure the data
+    for location, year_month, total_cases, total_deaths in query:
+        # Calculate recovered cases (total_cases - total_deaths)
+        recovered_cases = max(0, total_cases - total_deaths)  # Ensure non-negative recovered cases
+
+        if location not in result:
+            result[location] = {}
+
+        result[location][year_month] = recovered_cases
+
     return jsonify(result)
 
 if __name__ == '__main__':
