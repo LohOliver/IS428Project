@@ -34,7 +34,7 @@ export default function PolicyTimelineChart() {
   
   // State for filters
   const [filters, setFilters] = useState<FilterState>({
-    countries: ['USA'], // Default to USA
+    countries: ['SGP'], // Default to USA
     category: null,
     subcategory: null
   });
@@ -50,7 +50,7 @@ export default function PolicyTimelineChart() {
         let allPolicies: Policy[] = [];
         
         // Start with USA since we have that endpoint
-        const response = await fetch('https://is428project.onrender.com/policies/USA');
+        const response = await fetch('https://is428project.onrender.com/policies/SGP');
         
         if (!response.ok) {
           throw new Error(`Failed to fetch policy data: ${response.status}`);
