@@ -1157,7 +1157,8 @@ def get_policies_for_country(country_name):
         PolicyData.authorizing_country_iso,
         PolicyData.authorizing_country_name,
         PolicyData.actual_end_date,
-        PolicyData.effective_start_date
+        PolicyData.effective_start_date,
+        PolicyData.policy_description
     ).all()
     
     # Convert query results to dictionaries
@@ -1168,6 +1169,7 @@ def get_policies_for_country(country_name):
         'authorizing_country_name': policy.authorizing_country_name,
         'actual_end_date':policy.actual_end_date,
         'effective_start_date':policy.effective_start_date,
+        'policy_description':policy.policy_description
     } for policy in policies]
     
     # Return the results
@@ -1202,6 +1204,27 @@ def get_deaths_by_month_and_country():
         if location not in result:
             result[location] = {}
         result[location][year_month] = int(total_deaths) if total_deaths else 0
+
+    return jsonify(result)
+
+@app.route('/cases_by_month_and_country', methods=['GET'])
+def get_cases_by_month_and_country():
+    cases_query = db.session.query(
+        CovidData.location,  # Group by country
+        func.date_format(CovidData.date, "%Y-%m").label("year_month"),  # Extract year and month
+        func.max(CovidData.total_cases)
+    ).filter(
+        ~CovidData.location.in_(excluded_locations)
+    ).group_by(
+        CovidData.location, "year_month"
+    ).order_by(CovidData.location, "year_month").all()
+
+    # Format the results to group by country and year-month
+    result = {}
+    for location, year_month, total_cases in cases_query:
+        if location not in result:
+            result[location] = {}
+        result[location][year_month] = total_cases
 
     return jsonify(result)
 

@@ -6,12 +6,18 @@ import * as d3 from "d3";
 
 // TypeScript interfaces
 interface Policy {
-  actual_end_date: string;
+  actual_end_date: string | null;
   authorizing_country_iso: string;
   authorizing_country_name: string;
   effective_start_date: string;
   policy_category: string;
   policy_subcategory: string;
+  policy_description: string;
+  is_active?: boolean; // Add flag for active policies
+}
+
+interface ProcessedPolicy extends Policy {
+  actual_end_date: string; // This will always have a value after processing
 }
 
 interface AggregatedPolicy {
@@ -20,48 +26,224 @@ interface AggregatedPolicy {
   startDate: Date;
   endDate: Date;
   count: number;
+  activeCount: number; // Track how many policies are active
   countries: Set<string>;
   countryNames: Set<string>;
 }
 
 interface FilterState {
-  countries: string[];
+  countries: string[]; // This will store ISO alpha-3 codes
   category: string | null;
   subcategory: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  includeActivePolicies: boolean; // New filter for active policies
 }
 
-export default function PolicyTimelineChart() {
+interface PolicyTimelineChartProps {
+  onFilterChange: (filter: string) => void; // Type of the function prop
+}
+
+// Country name to alpha-3 code mapping
+const countryNameToAlpha3: Record<string, string> = {
+  Afghanistan: "AFG",
+  Albania: "ALB",
+  Algeria: "DZA",
+  Andorra: "AND",
+  Angola: "AGO",
+  Argentina: "ARG",
+  Armenia: "ARM",
+  Australia: "AUS",
+  Austria: "AUT",
+  Azerbaijan: "AZE",
+  // ... rest of the mapping (truncated for brevity)
+  "United Kingdom": "GBR",
+  "United States": "USA",
+  Uruguay: "URY",
+  Uzbekistan: "UZB",
+  Vanuatu: "VUT",
+  "Vatican City": "VAT",
+  Venezuela: "VEN",
+  Vietnam: "VNM",
+  Yemen: "YEM",
+  Zambia: "ZMB",
+  Zimbabwe: "ZWE",
+  Singapore: "SGP", // Ensuring Singapore is definitely included
+};
+
+// Create reverse mapping from alpha-3 code to country name
+const alpha3ToCountryName: Record<string, string> = {};
+Object.entries(countryNameToAlpha3).forEach(([name, code]) => {
+  alpha3ToCountryName[code] = name;
+});
+
+const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChange }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const [expandedDescriptions, setExpandedDescriptions] = useState<{
+    [key: number]: boolean;
+  }>({});
+
+  // Toggle description expansion
+  const toggleDescription = (index: number) => {
+    setExpandedDescriptions((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
+  // Truncate description if too long
+  const truncateDescription = (
+    description: string,
+    isExpanded: boolean,
+    index: number
+  ) => {
+    if (!description) return "No description available";
+
+    const maxLength = 200;
+    if (description.length <= maxLength) return description;
+
+    if (isExpanded) {
+      return (
+        <>
+          {description}
+          <button
+            onClick={() => toggleDescription(index)}
+            className="ml-2 text-blue-600 text-xs"
+          >
+            Collapse
+          </button>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {description.slice(0, maxLength)}...
+        <button
+          onClick={() => toggleDescription(index)}
+          className="ml-2 text-blue-600 text-xs"
+        >
+          Read more
+        </button>
+      </>
+    );
+  };
   // State for data, loading, and error
-  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [policies, setPolicies] = useState<ProcessedPolicy[]>([]);
+  const [rawPolicies, setRawPolicies] = useState<Policy[]>([]); // Store original API data
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for available countries
+  // State for dropdown
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+
+  // State for available countries and their names
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+  const [availableCountryNames, setAvailableCountryNames] = useState<string[]>(
+    []
+  );
 
   // State for selected policies (for detail view)
-  const [selectedPolicies, setSelectedPolicies] = useState<Policy[]>([]);
+  const [selectedPolicies, setSelectedPolicies] = useState<ProcessedPolicy[]>(
+    []
+  );
   const [showDetails, setShowDetails] = useState<boolean>(false);
   const [selectedGroupName, setSelectedGroupName] = useState<string>("");
 
-  // State for filters
+  // Initialize default date range
+  const DEFAULT_START_DATE = new Date(2020, 0, 1); // January 1, 2020
+  const DEFAULT_END_DATE = new Date(2023, 0, 31); // January 31, 2023
+
+  // State for filters - now including active policies toggle and default date range
   const [filters, setFilters] = useState<FilterState>({
     countries: ["SGP"], // Default to Singapore
     category: null,
     subcategory: null,
-    startDate: null,
-    endDate: null,
+    startDate: DEFAULT_START_DATE,
+    endDate: DEFAULT_END_DATE,
+    includeActivePolicies: true, // Default to including active policies
+  });
+
+  // Stats about active vs. ended policies
+  const [policyStats, setPolicyStats] = useState({
+    totalPolicies: 0,
+    activePolicies: 0,
+    endedPolicies: 0,
   });
 
   // State for pagination
   const [page, setPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 20;
+
+  // Initialize country name to code mapping
+  useEffect(() => {
+    // Make sure Singapore is in both mappings
+    if (!countryNameToAlpha3["Singapore"]) {
+      countryNameToAlpha3["Singapore"] = "SGP";
+    }
+    if (!alpha3ToCountryName["SGP"]) {
+      alpha3ToCountryName["SGP"] = "Singapore";
+    }
+
+    // Initialize availableCountryNames with all country names from the mapping
+    const initialCountryNames = Object.keys(countryNameToAlpha3).sort();
+    setAvailableCountryNames(initialCountryNames);
+  }, []);
+
+  // Calculate statistics for policies within our date range
+  const processPolicies = (allPolicies: Policy[]): ProcessedPolicy[] => {
+    // Define the default dates
+    const DEFAULT_START_DATE = new Date(2020, 0, 1); // January 1, 2020
+    const DEFAULT_END_DATE = new Date(2023, 0, 31); // January 31, 2023
+
+    // Process all policies
+    const processed = allPolicies.map((policy) => {
+      // Check if the policy has no end date
+      if (!policy.actual_end_date) {
+        return {
+          ...policy,
+          actual_end_date: DEFAULT_END_DATE.toISOString(), // Set Jan 2023 as end date
+          is_active: true, // Mark as active
+        };
+      }
+
+      // Ensure actual_end_date is a valid date
+      const endDate = new Date(policy.actual_end_date);
+
+      return {
+        ...policy,
+        actual_end_date: isNaN(endDate.getTime())
+          ? DEFAULT_END_DATE.toISOString()
+          : policy.actual_end_date,
+        is_active: false, // Explicitly mark as inactive
+      };
+    });
+
+    // Calculate statistics for policies within our date range
+    const inRangePolicies = processed.filter((p) => {
+      const startDate = new Date(p.effective_start_date);
+      const endDate = new Date(p.actual_end_date);
+
+      // Policy is in range if:
+      // 1. It starts before DEFAULT_END_DATE, and
+      // 2. It ends after DEFAULT_START_DATE
+      return startDate <= DEFAULT_END_DATE && endDate >= DEFAULT_START_DATE;
+    });
+
+    const activePolicies = inRangePolicies.filter((p) => p.is_active).length;
+    const endedPolicies = inRangePolicies.length - activePolicies;
+
+    setPolicyStats({
+      totalPolicies: inRangePolicies.length,
+      activePolicies,
+      endedPolicies,
+    });
+
+    return processed;
+  };
 
   // Fetch policy data
   useEffect(() => {
@@ -70,60 +252,52 @@ export default function PolicyTimelineChart() {
       setError(null);
 
       try {
-        const response = await fetch(
-          "https://is428project.onrender.com/policies/SGP"
-        );
+        // We need to fetch data for each selected country
+        const selectedCountries =
+          filters.countries.length > 0 ? filters.countries : ["SGP"]; // Default to SGP if none selected
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch policy data: ${response.status}`);
-        }
+        console.log("Fetching data for countries:", selectedCountries);
 
-        const data = await response.json();
+        // Create an array of promises for all country requests
+        const countryRequests = selectedCountries.map(async (countryCode) => {
+          const url = `https://is428project.onrender.com/policies/${countryCode}`;
+          const response = await fetch(url);
 
-        // Fix for the policy filter error
-        const policiesWithEndDates = data.filter(
-          (policy: Policy) => policy.actual_end_date
-        );
-
-        // Fix for the date mapping errors
-        if (policiesWithEndDates.length > 0) {
-          const startDates = policiesWithEndDates.map(
-            (p: Policy) => new Date(p.effective_start_date)
-          );
-          const endDates = policiesWithEndDates.map(
-            (p: Policy) => new Date(p.actual_end_date)
-          );
-
-          const minDate = new Date(
-            Math.min(...startDates.map((d: Date) => d.getTime()))
-          );
-          const maxDate = new Date(
-            Math.max(...endDates.map((d: Date) => d.getTime()))
-          );
-
-          // Set initial date range if not already set
-          if (!filters.startDate && !filters.endDate) {
-            setFilters((prev) => ({
-              ...prev,
-              startDate: minDate,
-              endDate: maxDate,
-            }));
+          if (!response.ok) {
+            console.warn(
+              `Failed to fetch data for country ${countryCode}: ${response.status}`
+            );
+            return []; // Return empty array for failed requests
           }
-        }
+
+          const data = await response.json();
+          return data;
+        });
+
+        // Wait for all requests to complete
+        const results = await Promise.all(countryRequests);
+
+        // Combine all results into a single array
+        const allPolicies = results.flat();
+
+        // Store raw policies from API
+        setRawPolicies(allPolicies);
+
+        // Process policies to handle those without end dates
+        const processedPolicies = processPolicies(allPolicies);
 
         // Set the policies
-        setPolicies(policiesWithEndDates);
+        setPolicies(processedPolicies);
 
-        // Extract available countries
-        // Fix for the parameter 'p' type error and the countries type mismatch
-        const countries = [
-          ...new Set(
-            policiesWithEndDates.map((p: Policy) => p.authorizing_country_iso)
-          ),
+        // Extract all unique countries from the data
+        const apiCountryCodes = [
+          ...new Set(processedPolicies.map((p) => p.authorizing_country_iso)),
         ].sort();
 
-        // Convert to string array before passing to setAvailableCountries
-        setAvailableCountries(countries as string[]);
+        console.log("API returned country codes:", apiCountryCodes);
+
+        // Update the available countries (alpha-3 codes)
+        setAvailableCountries(apiCountryCodes);
       } catch (err) {
         console.error("Error fetching policy data:", err);
         setError("Failed to load policy data. Please try again later.");
@@ -133,7 +307,7 @@ export default function PolicyTimelineChart() {
     };
 
     fetchPolicies();
-  }, []);
+  }, [filters.countries]); // Re-fetch when selected countries change
 
   // Extract unique categories for filters
   const uniqueCategories = [
@@ -153,6 +327,27 @@ export default function PolicyTimelineChart() {
 
   // Filtered policies based on current filters
   const filteredPolicies = policies.filter((policy) => {
+    // First, apply date range filter to exclude policies outside our time window
+    const policyEndDate = policy.actual_end_date
+      ? new Date(policy.actual_end_date)
+      : null;
+    const policyStartDate = new Date(policy.effective_start_date);
+
+    // Filter out policies that end before our start date or start after our end date
+    if (
+      (filters.startDate &&
+        policyEndDate &&
+        policyEndDate < filters.startDate) ||
+      (filters.endDate && policyStartDate > filters.endDate)
+    ) {
+      return false;
+    }
+
+    // Filter active policies if toggle is off
+    if (!filters.includeActivePolicies && policy.is_active) {
+      return false;
+    }
+
     // Filter by country if countries are selected
     if (
       filters.countries.length > 0 &&
@@ -172,20 +367,6 @@ export default function PolicyTimelineChart() {
       policy.policy_subcategory !== filters.subcategory
     ) {
       return false;
-    }
-
-    // Filter by date range
-    if (filters.startDate || filters.endDate) {
-      const policyStartDate = new Date(policy.effective_start_date);
-      const policyEndDate = new Date(policy.actual_end_date);
-
-      if (filters.startDate && policyEndDate < filters.startDate) {
-        return false;
-      }
-
-      if (filters.endDate && policyStartDate > filters.endDate) {
-        return false;
-      }
     }
 
     return true;
@@ -217,6 +398,7 @@ export default function PolicyTimelineChart() {
 
         // Increment count and add country
         existing.count += 1;
+        if (policy.is_active) existing.activeCount += 1;
         existing.countries.add(policy.authorizing_country_iso);
         existing.countryNames.add(policy.authorizing_country_name);
       } else {
@@ -227,6 +409,7 @@ export default function PolicyTimelineChart() {
           startDate,
           endDate,
           count: 1,
+          activeCount: policy.is_active ? 1 : 0,
           countries: new Set([policy.authorizing_country_iso]),
           countryNames: new Set([policy.authorizing_country_name]),
         });
@@ -251,24 +434,26 @@ export default function PolicyTimelineChart() {
   const paginatedPolicies = aggregatedPolicies.slice(startIndex, endIndex);
   const totalPages = Math.ceil(aggregatedPolicies.length / ITEMS_PER_PAGE);
 
-  // Handle filter changes
-  const handleCountryChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const options = event.target.options;
-    const selectedCountries: string[] = [];
-
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selectedCountries.push(options[i].value);
-      }
-    }
-
-    setFilters((prev) => ({
-      ...prev,
-      countries: selectedCountries,
-    }));
-    setPage(1); // Reset to first page when filter changes
+  // Toggle dropdown
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
   };
 
+  // Handle country selection (single select)
+  const handleCountryChange = (countryName: string) => {
+    const countryCode = countryNameToAlpha3[countryName] || countryName;
+
+    // Set just this one country
+    setFilters((prev) => ({
+      ...prev,
+      countries: [countryCode],
+    }));
+
+    setPage(1); // Reset to first page when filter changes
+    setDropdownOpen(false); // Close dropdown after selection
+  };
+
+  // Handle category change
   const handleCategoryChange = (
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {
@@ -281,6 +466,7 @@ export default function PolicyTimelineChart() {
     setPage(1); // Reset to first page when filter changes
   };
 
+  // Handle subcategory change
   const handleSubcategoryChange = (
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {
@@ -292,6 +478,7 @@ export default function PolicyTimelineChart() {
     setPage(1); // Reset to first page when filter changes
   };
 
+  // Handle date change
   const handleDateChange = (field: "startDate" | "endDate", value: string) => {
     // Handle empty string (clear filter)
     if (!value) {
@@ -314,6 +501,30 @@ export default function PolicyTimelineChart() {
     }
   };
 
+  // Handle toggle for including active policies
+  const handleActivePoliciesToggle = () => {
+    setFilters((prev) => ({
+      ...prev,
+      includeActivePolicies: !prev.includeActivePolicies,
+    }));
+    setPage(1); // Reset to first page when filter changes
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdown = document.getElementById("country-dropdown");
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Handle pagination
   const goToNextPage = () => {
     if (page < totalPages) {
@@ -327,7 +538,7 @@ export default function PolicyTimelineChart() {
     }
   };
 
-  // Draw the timeline chart using D3 - COMPLETELY REVISED
+  // Draw the timeline chart using D3
   useEffect(() => {
     if (!svgRef.current || paginatedPolicies.length === 0) return;
 
@@ -389,11 +600,32 @@ export default function PolicyTimelineChart() {
       .range([0, height])
       .padding(0.2);
 
-    // Color scale based on policy count
-    const maxCount = d3.max(paginatedPolicies, (d) => d.count) || 1;
+    // Categorical color scale instead of intensity
     const colorScale = d3
-      .scaleSequential(d3.interpolateBlues)
-      .domain([0, maxCount]);
+      .scaleOrdinal()
+      .domain(yDomain)
+      .range([
+        "#4e79a7",
+        "#f28e2c",
+        "#e15759",
+        "#76b7b2",
+        "#59a14f",
+        "#edc949",
+        "#af7aa1",
+        "#ff9da7",
+        "#9c755f",
+        "#bab0ab",
+        "#6b9ac4",
+        "#d7b5a6",
+        "#668eb2",
+        "#f1a55b",
+        "#e68d8e",
+        "#a2d9d5",
+        "#8bbc81",
+        "#f4d279",
+        "#c9a6c5",
+        "#ffccd0",
+      ]); // 20 distinct colors
 
     // X axis
     chart
@@ -417,18 +649,26 @@ export default function PolicyTimelineChart() {
       .style("text-anchor", "middle")
       .text("Date");
 
+    const categoryShortNames: { [key: string]: string } = {
+      "Support for public health and clinical capacity":
+        "Public Health Support",
+      // Add more categories as needed
+    };
     // Y axis
     chart
       .append("g")
       .call(d3.axisLeft(yScale))
       .selectAll("text")
-      .style("font-size", "12px");
+      .style("font-size", "12px")
+      .text(function (this: d3.BaseType, d: any) {
+        return categoryShortNames[d as string] || d;
+      });
 
     // Y axis label
     chart
       .append("text")
       .attr("transform", "rotate(-90)")
-      .attr("y", -margin.left + 15)
+      .attr("y", -margin.left)
       .attr("x", -height / 2)
       .attr("dy", "1em")
       .style("text-anchor", "middle")
@@ -454,9 +694,16 @@ export default function PolicyTimelineChart() {
       .attr("height", yScale.bandwidth() * 0.9)
       .attr("rx", 6) // Rounded corners
       .attr("ry", 6)
-      .style("fill", (d) => colorScale(d.count))
+      .style("fill", (d: AggregatedPolicy) => {
+        const label = filters.category
+          ? d.subcategory || "Unknown"
+          : d.category;
+        return colorScale(label) as string;
+      })
+      // Use dashed stroke for bars that contain active policies
       .style("stroke", "#333")
       .style("stroke-width", 1)
+      .style("stroke-dasharray", (d) => (d.activeCount > 0 ? "5,5" : "none"))
       .on("mouseover", function (event, d) {
         d3.select(this).style("stroke-width", 2);
 
@@ -476,6 +723,11 @@ export default function PolicyTimelineChart() {
               filters.category ? d.subcategory || "Unknown" : d.category
             }</div>
             <div><span class="font-semibold">Policies:</span> ${d.count}</div>
+            ${
+              d.activeCount > 0
+                ? `<div><span class="font-semibold">Active Policies:</span> ${d.activeCount}</div>`
+                : ""
+            }
             <div><span class="font-semibold">Countries:</span> ${countriesList}</div>
             <div><span class="font-semibold">Start:</span> ${startFormatted}</div>
             <div><span class="font-semibold">End:</span> ${endFormatted}</div>
@@ -519,7 +771,7 @@ export default function PolicyTimelineChart() {
         setShowDetails(true);
       });
 
-    // Add labels with count
+    // Add only count labels to the bars
     chart
       .selectAll(".count-label")
       .data(paginatedPolicies)
@@ -530,7 +782,7 @@ export default function PolicyTimelineChart() {
         const label = filters.category
           ? d.subcategory || "Unknown"
           : d.category;
-        return (yScale(label) || 0) + yScale.bandwidth() / 2 + 5;
+        return (yScale(label) || 0) + yScale.bandwidth() / 2;
       })
       .attr("x", (d) => {
         const barWidth = xScale(d.endDate) - xScale(d.startDate);
@@ -538,7 +790,7 @@ export default function PolicyTimelineChart() {
       })
       .text((d) => (d.count > 1 ? `${d.count} policies` : "1 policy"))
       .attr("text-anchor", "middle")
-      .style("fill", (d) => (d.count > maxCount / 2 ? "white" : "black"))
+      .style("fill", "white") // White text for all bars
       .style("font-size", "11px")
       .style("font-weight", "bold")
       .style("pointer-events", "none") // Prevent text from interfering with mouse events
@@ -550,105 +802,28 @@ export default function PolicyTimelineChart() {
         }
       });
 
-    // Add category/subcategory labels
-    chart
-      .selectAll(".category-label")
-      .data(paginatedPolicies)
-      .enter()
-      .append("text")
-      .attr("class", "category-label")
-      .attr("y", (d) => {
-        const label = filters.category
-          ? d.subcategory || "Unknown"
-          : d.category;
-        return (yScale(label) || 0) + yScale.bandwidth() / 2 - 5;
-      })
-      .attr("x", (d) => {
-        const barWidth = xScale(d.endDate) - xScale(d.startDate);
-        return xScale(d.startDate) + barWidth / 2;
-      })
-      .text((d) => (filters.category ? d.subcategory || "Unknown" : d.category))
-      .attr("text-anchor", "middle")
-      .style("fill", (d) => (d.count > maxCount / 2 ? "white" : "black"))
-      .style("font-size", "11px")
-      .style("pointer-events", "none") // Prevent text from interfering with mouse events
-      .each(function (d) {
-        // Hide text if bar is too small
-        const barWidth = xScale(d.endDate) - xScale(d.startDate);
-        if (barWidth < 100) {
-          d3.select(this).style("opacity", 0);
-        }
-      });
+    // Add legend for active policies
+    if (policyStats.activePolicies > 0) {
+      const activeLegend = chart
+        .append("g")
+        .attr("transform", `translate(20, -35)`);
 
-    // Add legend for policy count
-    const legendData = [
-      1,
-      Math.ceil(maxCount / 3),
-      Math.ceil((2 * maxCount) / 3),
-      maxCount,
-    ];
-    const legendWidth = 200;
-    const legendHeight = 20;
-
-    const legendX = width - legendWidth;
-    const legendY = -35;
-
-    // Legend container
-    const legend = chart
-      .append("g")
-      .attr("transform", `translate(${legendX},${legendY})`);
-
-    // Legend title
-    legend
-      .append("text")
-      .attr("x", legendWidth / 2)
-      .attr("y", -5)
-      .attr("text-anchor", "middle")
-      .style("font-size", "11px")
-      .text("Number of Policies");
-
-    // Legend gradient
-    const legendScale = d3
-      .scaleLinear()
-      .domain([1, maxCount])
-      .range([0, legendWidth]);
-
-    // Add color gradient rectangles
-    legendData.forEach((value, i) => {
-      if (i < legendData.length - 1) {
-        const startX = legendScale(value);
-        const endX = legendScale(legendData[i + 1]);
-        const rectWidth = endX - startX;
-
-        legend
-          .append("rect")
-          .attr("x", startX)
-          .attr("y", 0)
-          .attr("width", rectWidth)
-          .attr("height", legendHeight)
-          .style("fill", colorScale(value));
-      }
-    });
-
-    // Add ticks and labels
-    legendData.forEach((value) => {
-      legend
-        .append("line")
-        .attr("x1", legendScale(value))
-        .attr("x2", legendScale(value))
-        .attr("y1", legendHeight)
-        .attr("y2", legendHeight + 4)
-        .style("stroke", "#333");
-
-      legend
+      // Add label
+      activeLegend
         .append("text")
-        .attr("x", legendScale(value))
-        .attr("y", legendHeight + 15)
-        .attr("text-anchor", "middle")
+        .attr("x", 25)
+        .attr("y", 8)
         .style("font-size", "10px")
-        .text(value);
-    });
-  }, [paginatedPolicies, filters.category, filters.startDate, filters.endDate]);
+        .style("alignment-baseline", "middle")
+        .text("Contains active policies (Jan 2020 - Jan 2023)");
+    }
+  }, [
+    paginatedPolicies,
+    filters.category,
+    filters.startDate,
+    filters.endDate,
+    policyStats,
+  ]);
 
   // Handle window resize
   useEffect(() => {
@@ -692,28 +867,82 @@ export default function PolicyTimelineChart() {
   return (
     <div className="w-full space-y-4" ref={containerRef}>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Country Filter */}
-        <div className="space-y-2">
+        {/* Country Filter Dropdown (Single Select) */}
+        <div className="space-y-2 relative" id="country-dropdown">
           <label htmlFor="country-filter" className="block font-medium">
-            Countries
+            Country
           </label>
-          <select
-            id="country-filter"
-            className="w-full p-2 border rounded"
-            multiple
-            size={Math.min(4, availableCountries.length)}
-            onChange={handleCountryChange}
-            value={filters.countries}
+
+          {/* Dropdown button */}
+          <button
+            className="w-full p-2 border rounded bg-white flex justify-between items-center"
+            onClick={toggleDropdown}
+            type="button"
           >
-            {availableCountries.map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </select>
-          <div className="text-xs text-gray-500">
-            Hold Ctrl/Cmd to select multiple
-          </div>
+            <span>
+              {filters.countries.length === 0
+                ? "Select a country"
+                : alpha3ToCountryName[filters.countries[0]] ||
+                  filters.countries[0]}
+            </span>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={dropdownOpen ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"}
+              />
+            </svg>
+          </button>
+
+          {/* Dropdown menu */}
+          {dropdownOpen && (
+            <div className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg max-h-64 overflow-y-auto">
+              <div className="p-2 sticky top-0 bg-white border-b">
+                <input
+                  type="text"
+                  className="w-full p-2 border rounded"
+                  placeholder="Search countries..."
+                  onChange={(e) => {
+                    // Filter countries based on search input
+                    const searchTerm = e.target.value.toLowerCase();
+                    const filtered = Object.keys(countryNameToAlpha3)
+                      .filter((name) => name.toLowerCase().includes(searchTerm))
+                      .sort();
+                    setAvailableCountryNames(filtered);
+                  }}
+                />
+              </div>
+              <div className="p-2">
+                {availableCountryNames.map((countryName) => {
+                  const countryCode =
+                    countryNameToAlpha3[countryName] || countryName;
+                  const isSelected = filters.countries[0] === countryCode;
+
+                  return (
+                    <div
+                      key={countryName}
+                      className={`flex items-center p-2 hover:bg-gray-100 cursor-pointer ${
+                        isSelected ? "bg-blue-100" : ""
+                      }`}
+                      onClick={() => {
+                        handleCountryChange(countryName);
+                        onFilterChange(countryName);
+                      }}
+                    >
+                      <span>{countryName}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Category Filter */}
@@ -757,46 +986,38 @@ export default function PolicyTimelineChart() {
             </select>
           </div>
         )}
+      </div>
 
-        {/* Date Range Filter */}
-        <div className="space-y-2 md:col-span-2 lg:col-span-1">
-          <label htmlFor="date-filter" className="block font-medium">
-            Date Range
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label htmlFor="start-date" className="text-xs text-gray-500">
-                Start
-              </label>
-              <input
-                id="start-date"
-                type="date"
-                className="w-full p-2 border rounded"
-                value={
-                  filters.startDate
-                    ? filters.startDate.toISOString().substr(0, 10)
-                    : ""
-                }
-                onChange={(e) => handleDateChange("startDate", e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="end-date" className="text-xs text-gray-500">
-                End
-              </label>
-              <input
-                id="end-date"
-                type="date"
-                className="w-full p-2 border rounded"
-                value={
-                  filters.endDate
-                    ? filters.endDate.toISOString().substr(0, 10)
-                    : ""
-                }
-                onChange={(e) => handleDateChange("endDate", e.target.value)}
-              />
-            </div>
+      {/* Active Policies Toggle and Stats */}
+      <div className="flex flex-col md:flex-row justify-between bg-gray-50 p-3 rounded items-start md:items-center gap-2">
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="include-active"
+              checked={filters.includeActivePolicies}
+              onChange={handleActivePoliciesToggle}
+              className="h-4 w-4 text-blue-600"
+            />
+            <label htmlFor="include-active" className="select-none">
+              Include currently active policies (shown until Jan 2023)
+            </label>
           </div>
+          <div className="text-xs text-gray-600 italic ml-6">
+            Showing policies from Jan 2020 to Jan 2023
+          </div>
+        </div>
+
+        <div className="text-sm flex flex-wrap gap-3">
+          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+            Total: {policyStats.totalPolicies} policies
+          </span>
+          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
+            Active: {policyStats.activePolicies} policies
+          </span>
+          <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+            Ended: {policyStats.endedPolicies} policies
+          </span>
         </div>
       </div>
 
@@ -867,7 +1088,7 @@ export default function PolicyTimelineChart() {
 
       {filteredPolicies.length === 0 && !loading && (
         <div className="text-center p-4 border rounded bg-gray-50">
-          No policies with end dates match the selected filters.
+          No policies match the selected filters.
         </div>
       )}
 
@@ -923,6 +1144,18 @@ export default function PolicyTimelineChart() {
                   >
                     End Date
                   </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Description
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -946,7 +1179,33 @@ export default function PolicyTimelineChart() {
                       ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {new Date(policy.actual_end_date).toLocaleDateString()}
+                      {policy.is_active ? (
+                        <span className="text-gray-500 italic">
+                          Jan 2023 (currently active)
+                        </span>
+                      ) : (
+                        new Date(policy.actual_end_date).toLocaleDateString()
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {policy.is_active ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          Ended
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="max-w-xs">
+                        {truncateDescription(
+                          policy.policy_description,
+                          !!expandedDescriptions[index],
+                          index
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -958,3 +1217,4 @@ export default function PolicyTimelineChart() {
     </div>
   );
 }
+export default PolicyTimelineChart;
