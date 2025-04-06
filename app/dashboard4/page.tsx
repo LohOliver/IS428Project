@@ -35,9 +35,9 @@ export default function Dashboard4() {
             />
           </div>
 
-          <div className="rounded-lg border bg-card p-4 md:p-6">
+         {/*  <div className="rounded-lg border bg-card p-4 md:p-6">
             <PolicyCategoryPieChart location={filter} />
-          </div>
+          </div> */}
         </div>
       </main>
     </div>
