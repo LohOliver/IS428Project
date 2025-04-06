@@ -40,6 +40,10 @@ interface FilterState {
   includeActivePolicies: boolean; // New filter for active policies
 }
 
+interface PolicyTimelineChartProps {
+  onFilterChange: (filter: string) => void; // Type of the function prop
+}
+
 // Country name to alpha-3 code mapping
 const countryNameToAlpha3: Record<string, string> = {
   Afghanistan: "AFG",
@@ -73,7 +77,7 @@ Object.entries(countryNameToAlpha3).forEach(([name, code]) => {
   alpha3ToCountryName[code] = name;
 });
 
-export default function PolicyTimelineChart() {
+const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChange }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -927,7 +931,10 @@ export default function PolicyTimelineChart() {
                       className={`flex items-center p-2 hover:bg-gray-100 cursor-pointer ${
                         isSelected ? "bg-blue-100" : ""
                       }`}
-                      onClick={() => handleCountryChange(countryName)}
+                      onClick={() => {
+                        handleCountryChange(countryName);
+                        onFilterChange(countryName);
+                      }}
                     >
                       <span>{countryName}</span>
                     </div>
@@ -1210,3 +1217,4 @@ export default function PolicyTimelineChart() {
     </div>
   );
 }
+export default PolicyTimelineChart;

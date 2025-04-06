@@ -6,6 +6,10 @@ import PolicyTimelineChart from "../../components/dashboard4/policyTimeline";
 import StepGraph from "@/components/dashboard4/policyOutcome";
 
 export default function Dashboard4() {
+  const [filter, setFilter] = useState("Singapore");
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter);
+  };
   return (
     <div className="flex min-h-screen flex-col">
       <DashboardNavbar />
@@ -21,12 +25,12 @@ export default function Dashboard4() {
 
         {/* Policy Timeline Chart Component */}
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <PolicyTimelineChart />
+          <PolicyTimelineChart onFilterChange={handleFilterChange}/>
         </div>
 
         {/* Policy Timeline Chart Component */}
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <StepGraph location="Singapore" startDate="2020-05" endDate="2021-05"/>
+          <StepGraph location={filter} startDate="2020-01" endDate="2023-01"/>
         </div>
 
       </main>
