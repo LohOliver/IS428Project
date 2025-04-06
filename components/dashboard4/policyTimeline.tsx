@@ -645,12 +645,20 @@ export default function PolicyTimelineChart() {
       .style("text-anchor", "middle")
       .text("Date");
 
+    const categoryShortNames: { [key: string]: string } = {
+      "Support for public health and clinical capacity":
+        "Public Health Support",
+      // Add more categories as needed
+    };
     // Y axis
     chart
       .append("g")
       .call(d3.axisLeft(yScale))
       .selectAll("text")
-      .style("font-size", "12px");
+      .style("font-size", "12px")
+      .text(function (this: d3.BaseType, d: any) {
+        return categoryShortNames[d as string] || d;
+      });
 
     // Y axis label
     chart
