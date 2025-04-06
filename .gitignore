@@ -23,5 +23,9 @@ yarn-error.log*
 # Typescript build output
 *.tsbuildinfo
 
+# Package lock files (optional, depends on your preference)
+ package-lock.json
+ yarn.lock
+ 
 # Vercel
 .vercel
