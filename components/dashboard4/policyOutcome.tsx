@@ -22,7 +22,6 @@ interface NewCasesGraphProps {
 
 const countryNameToAlpha3: Record<string, string> = {
   Singapore: "SGP",
-  // Add more if needed
 };
 
 const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
@@ -36,7 +35,6 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Fetch COVID-19 case data
   useEffect(() => {
     fetch("https://is428project.onrender.com/cases_by_month_and_country")
       .then((res) => res.json())
@@ -47,7 +45,6 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
       .catch((err) => console.error("Error fetching case data:", err));
   }, []);
 
-  // Fetch policy data
   useEffect(() => {
     const countryCode = countryNameToAlpha3[location] || location;
     const policyUrl = `https://is428project.onrender.com/policies/${countryCode}`;
@@ -77,8 +74,6 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const parseDate = d3.timeParse("%Y-%m");
-    const parsePolicyDate = d3.timeParse("%Y-%m-%d");
-
     const start = parseDate(startDate);
     const end = parseDate(endDate);
     if (!start || !end) return;
@@ -91,9 +86,8 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
       .filter(
         (d): d is { date: Date; cases: number } =>
           d !== undefined && d.date >= start && d.date <= end
-      );
-
-    filteredDataset.sort((a, b) => a.date.getTime() - b.date.getTime());
+      )
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
 
     const newCasesData = filteredDataset.map((d, i) =>
       i === 0
@@ -113,6 +107,7 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
       .axisBottom(xScale)
       .tickFormat((d) => d3.timeFormat("%b %Y")(d as Date))
       .ticks(6);
+
     const yAxis = d3.axisLeft(yScale);
 
     svg
@@ -176,22 +171,13 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
         const xPos = xScale(dataPoint.date);
         const yPos = yScale(dataPoint.cases);
 
-        graph
-          .append("line")
-          .attr("x1", xScale(pDate))
-          .attr("x2", xScale(pDate))
-          .attr("y1", 0)
-          .attr("y2", height)
-          .attr("stroke", "red")
-          .attr("stroke-dasharray", "4");
-
         let effectivenessText = "";
         if (index > 0 && index < newCasesData.length) {
           const before = newCasesData[index - 1].cases;
           const after = newCasesData[index].cases;
           if (before > 0) {
             const drop = Math.round(((before - after) / before) * 100);
-            effectivenessText = drop > 0 ? ` (↓${drop}%)` : " (no drop)";
+            effectivenessText = drop > 0 ? ` (↓${drop}%)` : "";
           }
         }
 
@@ -203,14 +189,15 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
           .attr("fill", "red")
           .on("mouseover", function (event) {
             if (tooltipRef.current) {
+              const [x, y] = d3.pointer(event, svgRef.current);
+              const formattedDate = d3.timeFormat("%a, %d %b %Y")(pDate);
               d3.select(tooltipRef.current)
                 .style("opacity", 1)
-                .style("left", `${event.clientX + 10}px`)
-                .style("top", `${event.clientY - 28}px`)
+                .style("left", `${x + margin.left + 10}px`)
+                .style("top", `${y + margin.top - 10}px`)
                 .html(
                   `<strong>${policy.policy_category}${effectivenessText}</strong><br/>
-                   <em>${policy.effective_start_date}</em><br/>
-                   ${policy.policy_description}`
+                   <em>${formattedDate}</em>`
                 );
             }
           })
@@ -237,6 +224,8 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
           padding: "5px",
           fontSize: "12px",
           zIndex: 1000,
+          maxWidth: "220px",
+          whiteSpace: "normal",
         }}
       ></div>
     </div>
