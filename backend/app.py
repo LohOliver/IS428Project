@@ -409,12 +409,12 @@ def get_top10_countries_by_cases():
     return jsonify(result)
 
 
+
 @app.route('/top10_countries_by_deaths', methods=['GET'])
-def get_top10_countries_by_deaths():
+def get_top_10_countries_by_death_rate():
+
     """
-    Get the top 10 countries with the highest maximum total COVID-19 deaths.
-    Uses maximum death count for each country rather than latest date.
-    Excludes regions, continents, and other non-country entities.
+    Get the maximum total COVID-19 deaths for each country.
     
     Returns:
         JSON response with the structure:
@@ -424,20 +424,21 @@ def get_top10_countries_by_deaths():
         }
     """
     # Query to get the maximum total deaths for each country
-    max_deaths_query = db.session.query(
+    max_total_deaths_query = db.session.query(
         CovidData.location,
-        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)).label("max_total_deaths")
-    ).filter(
-        CovidData.total_deaths.isnot(None),  # Filter out NULL values
-        ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
+        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases))
     ).group_by(
         CovidData.location
+    ).filter(
+        CovidData.total_deaths.isnot(None),
+        ~CovidData.location.in_(excluded_locations)
+        # Filter out NULL values
     ).order_by(
-        func.max(CovidData.total_deaths).desc()  # Order by max total deaths in descending order
-    ).limit(10)  # Limit to top 10
+        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)).desc()  # Sort in descending order
+    ).limit(10)
     
     # Format the result as a dictionary
-    result = {location: max_deaths for location, max_deaths in max_deaths_query}
+    result = {location: max_deaths for location, max_deaths in max_total_deaths_query}
     
     return jsonify(result)
 

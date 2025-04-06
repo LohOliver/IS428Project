@@ -312,11 +312,11 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
       case "cases":
         return ["#ffeda0", "#f03b20"]; // Yellow to red
       case "deaths":
-        return ["#fee5d9", "#a50f15"]; // Light pink to dark red
+        return ["#ffeda0", "#f03b20"]; // Yellow to red
       case "recovered":
-        return ["#edf8e9", "#31a354"]; // Light green to dark green
+        return ["#ffeda0", "#f03b20"]; // Yellow to red
       case "vaccinated":
-        return ["#eff3ff", "#3182bd"]; // Light blue to dark blue
+        return ["#ffeda0", "#f03b20"]; // Yellow to red
       default:
         return ["#ffeda0", "#f03b20"]; // Default
     }
