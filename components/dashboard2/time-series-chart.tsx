@@ -455,7 +455,7 @@ export function TimeSeriesChart({
     const legend = svg
       .append("g")
       .attr("class", "chart-legend")
-      .attr("transform", `translate(${width-40 }, -55)`);
+      .attr("transform", `translate(${width-50 }, -55)`);
 
     // Stringency legend item
     legend

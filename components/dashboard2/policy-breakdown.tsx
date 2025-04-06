@@ -791,7 +791,7 @@ export function PolicyBreakdown({
     // Add legend for newly implemented policies
     const legend = g
       .append("g")
-      .attr("transform", `translate(${width - 150}, ${height + 30})`);
+      .attr("transform", `translate(${width - 150}, ${height -220})`);
 
     // Add legend title
     legend
