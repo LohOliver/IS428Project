@@ -26,7 +26,7 @@ export default function Dashboard4() {
 
         {/* Policy Timeline Chart Component */}
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <StepGraph location="Singapore"/>
+          <StepGraph location="Singapore" startDate="2020-05" endDate="2021-05"/>
         </div>
 
       </main>

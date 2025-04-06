@@ -9,9 +9,15 @@ interface CovidData {
 
 interface StepGraphProps {
   location: string;
+  startDate: string; // Format: YYYY-MM
+  endDate: string; // Format: YYYY-MM
 }
 
-const StepGraph: React.FC<StepGraphProps> = ({ location }) => {
+const StepGraph: React.FC<StepGraphProps> = ({
+  location,
+  startDate,
+  endDate,
+}) => {
   const [data, setData] = useState<CovidData | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -36,19 +42,42 @@ const StepGraph: React.FC<StepGraphProps> = ({ location }) => {
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const dataset = Object.entries(data[location]).map(([date, cases]) => ({
-      date: d3.timeParse("%Y-%m")(date)!,
-      cases,
-    }));
+    // Use default values for startDate and endDate if they are null or undefined
+    const parseDate = d3.timeParse("%Y-%m");
+    const defaultStartDate = "2020-01"; // Default start date
+    const defaultEndDate = "2023-12"; // Default end date
+
+    const start = parseDate(startDate || defaultStartDate);
+    const end = parseDate(endDate || defaultEndDate);
+
+    const filteredDataset = Object.entries(data[location])
+      .map(([date, cases]) => {
+        const parsedDate = parseDate(date);
+        return parsedDate ? { date: parsedDate, cases } : undefined; // Return `undefined` for invalid dates
+      })
+      .filter((d): d is { date: Date; cases: number } => {
+        // Ensure start and end are valid dates and not null
+        const isStartValid = start !== null && start !== undefined;
+        const isEndValid = end !== null && end !== undefined;
+
+        // Ensure all values are valid booleans and filter accordingly
+        return (
+          isStartValid &&
+          isEndValid &&
+          d !== undefined &&
+          d.date >= start &&
+          d.date <= end
+        );
+      });
 
     const xScale = d3
       .scaleTime()
-      .domain(d3.extent(dataset, (d) => d.date) as [Date, Date])
+      .domain(d3.extent(filteredDataset, (d) => d.date) as [Date, Date]) // Safe since filteredDataset is guaranteed to have valid dates
       .range([0, width]);
 
     const yScale = d3
       .scaleLinear()
-      .domain([0, d3.max(dataset, (d) => d.cases)!])
+      .domain([0, d3.max(filteredDataset, (d) => d.cases)!]) // Non-null assertion since `filteredDataset` should have cases
       .range([height, 0]);
 
     const xAxis = d3
@@ -92,12 +121,12 @@ const StepGraph: React.FC<StepGraphProps> = ({ location }) => {
 
     graph
       .append("path")
-      .datum(dataset)
+      .datum(filteredDataset)
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", line);
-  }, [data, location]);
+  }, [data, location, startDate, endDate]); // Added startDate and endDate as dependencies
 
   return <svg ref={svgRef} width={800} height={400}></svg>;
 };
