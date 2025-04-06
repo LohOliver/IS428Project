@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DashboardNavbar } from "../../components/navbar";
 import PolicyTimelineChart from "../../components/dashboard4/policyTimeline";
 import StepGraph from "@/components/dashboard4/policyOutcome";
-import PolicyCategoryPieChart from "@/components/dashboard4/policyCategoryChart";
+/* import PolicyCategoryPieChart from "@/components/dashboard4/policyCategoryChart"; */
 export default function Dashboard4() {
   const [filter, setFilter] = useState("Singapore");
   const handleFilterChange = (newFilter: string) => {
