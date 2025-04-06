@@ -22,7 +22,7 @@ const StepGraph: React.FC<StepGraphProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    fetch("http://localhost:5002/cases_by_month_and_country")
+    fetch("https://is428project.onrender.com/cases_by_month_and_country")
       .then((res) => res.json())
       .then((fetchedData: CovidData) => setData(fetchedData))
       .catch((err) => console.error("Error fetching data:", err));
