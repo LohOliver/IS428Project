@@ -248,7 +248,7 @@ export default function PolicyTimelineChart() {
 
         // Create an array of promises for all country requests
         const countryRequests = selectedCountries.map(async (countryCode) => {
-          const url = `http://localhost:5002/policies/${countryCode}`;
+          const url = `https://is428project.onrender.com/policies/${countryCode}`;
           const response = await fetch(url);
 
           if (!response.ok) {
