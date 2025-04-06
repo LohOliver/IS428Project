@@ -70,18 +70,7 @@ function RegionalComparison({
 
   // Map color based on data key
   const getColor = () => {
-    switch (dataKey) {
-      case "cases":
-        return "hsl(var(--chart-1))";
-      case "deaths":
-        return "hsl(var(--chart-2))";
-      case "recovered":
-        return "hsl(var(--chart-3))";
-      case "vaccinated":
-        return "hsl(var(--chart-4))";
-      default:
-        return "hsl(var(--chart-1))";
-    }
+    return "#f03b20";
   };
 
   return (
