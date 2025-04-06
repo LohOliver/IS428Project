@@ -189,10 +189,11 @@ export default function PolicyTimelineChart() {
     setAvailableCountryNames(initialCountryNames);
   }, []);
 
-  // Process policies to handle those without end dates
+  // Calculate statistics for policies within our date range
   const processPolicies = (allPolicies: Policy[]): ProcessedPolicy[] => {
-    // We'll use the default end date for policies with no end date
-    const limitDate = DEFAULT_END_DATE;
+    // Define the default dates
+    const DEFAULT_START_DATE = new Date(2020, 0, 1); // January 1, 2020
+    const DEFAULT_END_DATE = new Date(2023, 0, 31); // January 31, 2023
 
     // Process all policies
     const processed = allPolicies.map((policy) => {
@@ -200,12 +201,19 @@ export default function PolicyTimelineChart() {
       if (!policy.actual_end_date) {
         return {
           ...policy,
-          actual_end_date: limitDate.toISOString(), // Set Jan 2023 as end date
+          actual_end_date: DEFAULT_END_DATE.toISOString(), // Set Jan 2023 as end date
           is_active: true, // Mark as active
         };
       }
+
+      // Ensure actual_end_date is a valid date
+      const endDate = new Date(policy.actual_end_date);
+
       return {
         ...policy,
+        actual_end_date: isNaN(endDate.getTime())
+          ? DEFAULT_END_DATE.toISOString()
+          : policy.actual_end_date,
         is_active: false, // Explicitly mark as inactive
       };
     });
@@ -316,13 +324,17 @@ export default function PolicyTimelineChart() {
   // Filtered policies based on current filters
   const filteredPolicies = policies.filter((policy) => {
     // First, apply date range filter to exclude policies outside our time window
+    const policyEndDate = policy.actual_end_date
+      ? new Date(policy.actual_end_date)
+      : null;
     const policyStartDate = new Date(policy.effective_start_date);
-    const policyEndDate = new Date(policy.actual_end_date);
 
     // Filter out policies that end before our start date or start after our end date
     if (
-      policyEndDate < filters.startDate ||
-      policyStartDate > filters.endDate
+      (filters.startDate &&
+        policyEndDate &&
+        policyEndDate < filters.startDate) ||
+      (filters.endDate && policyStartDate > filters.endDate)
     ) {
       return false;
     }
@@ -644,7 +656,7 @@ export default function PolicyTimelineChart() {
     chart
       .append("text")
       .attr("transform", "rotate(-90)")
-      .attr("y", -margin.left + 15)
+      .attr("y", -margin.left)
       .attr("x", -height / 2)
       .attr("dy", "1em")
       .style("text-anchor", "middle")
@@ -670,11 +682,11 @@ export default function PolicyTimelineChart() {
       .attr("height", yScale.bandwidth() * 0.9)
       .attr("rx", 6) // Rounded corners
       .attr("ry", 6)
-      .style("fill", (d) => {
+      .style("fill", (d: AggregatedPolicy) => {
         const label = filters.category
           ? d.subcategory || "Unknown"
           : d.category;
-        return colorScale(label);
+        return colorScale(label) as string;
       })
       // Use dashed stroke for bars that contain active policies
       .style("stroke", "#333")
@@ -959,47 +971,6 @@ export default function PolicyTimelineChart() {
             </select>
           </div>
         )}
-
-        {/* Date Range Filter */}
-        <div className="space-y-2 md:col-span-2 lg:col-span-1">
-          <label htmlFor="date-filter" className="block font-medium">
-            Date Range
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label htmlFor="start-date" className="text-xs text-gray-500">
-                Start
-              </label>
-              <input
-                id="start-date"
-                type="date"
-                className="w-full p-2 border rounded"
-                value={
-                  filters.startDate
-                    ? filters.startDate.toISOString().substr(0, 10)
-                    : ""
-                }
-                onChange={(e) => handleDateChange("startDate", e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="end-date" className="text-xs text-gray-500">
-                End
-              </label>
-              <input
-                id="end-date"
-                type="date"
-                className="w-full p-2 border rounded"
-                value={
-                  filters.endDate
-                    ? filters.endDate.toISOString().substr(0, 10)
-                    : ""
-                }
-                onChange={(e) => handleDateChange("endDate", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Active Policies Toggle and Stats */}
