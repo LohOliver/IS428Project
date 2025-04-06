@@ -1157,7 +1157,8 @@ def get_policies_for_country(country_name):
         PolicyData.authorizing_country_iso,
         PolicyData.authorizing_country_name,
         PolicyData.actual_end_date,
-        PolicyData.effective_start_date
+        PolicyData.effective_start_date,
+        PolicyData.policy_description
     ).all()
     
     # Convert query results to dictionaries
@@ -1168,6 +1169,7 @@ def get_policies_for_country(country_name):
         'authorizing_country_name': policy.authorizing_country_name,
         'actual_end_date':policy.actual_end_date,
         'effective_start_date':policy.effective_start_date,
+        'policy_description':policy.policy_description
     } for policy in policies]
     
     # Return the results
