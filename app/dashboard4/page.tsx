@@ -28,11 +28,11 @@ export default function Dashboard4() {
         {/* Policy Timeline Chart Component */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="rounded-lg border bg-card p-4 md:p-6">
-            <StepGraph
+          {/*   <StepGraph
               location={filter}
               startDate="2020-01"
               endDate="2023-01"
-            />
+            /> */}
           </div>
 
          {/*  <div className="rounded-lg border bg-card p-4 md:p-6">
