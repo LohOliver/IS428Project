@@ -1,7 +1,7 @@
 import socket
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, desc, extract, Integer
 from flask_cors import CORS
@@ -1255,6 +1255,24 @@ def get_recovered_by_month_and_country():
         result[location][year_month] = recovered_cases
 
     return jsonify(result)
+
+@app.route('/policy_category_distribution', methods=['GET'])
+def get_policy_category_distribution():
+    country_filter = request.args.get('country')  # Optional country filter
+
+    query = db.session.query(
+        PolicyData.policy_category,
+        func.count().label("count")
+    )
+
+    if country_filter:
+        query = query.filter(PolicyData.authorizing_country_iso == country_filter)
+
+    query = query.group_by(PolicyData.policy_category).order_by(desc("count")).all()
+
+    result = [{"category": category, "count": count} for category, count in query]
+    return jsonify(result)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)
