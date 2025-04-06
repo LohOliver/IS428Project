@@ -1295,6 +1295,7 @@ def get_policy_category_distribution():
 
     result = [{"category": category, "count": count} for category, count in query]
     return jsonify(result)
+
 @app.route('/policy_category_count/<country_name>', methods=['GET'])
 def get_policy_category_count(country_name):
     """

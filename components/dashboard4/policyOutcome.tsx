@@ -11,12 +11,14 @@ interface StepGraphProps {
   location: string;
   startDate: string; // Format: YYYY-MM
   endDate: string; // Format: YYYY-MM
+  title?: string; // Optional title prop
 }
 
 const StepGraph: React.FC<StepGraphProps> = ({
   location,
   startDate,
   endDate,
+  title = `COVID-19 Cases in ${location}`, // Default title using location
 }) => {
   const [data, setData] = useState<CovidData | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -31,7 +33,7 @@ const StepGraph: React.FC<StepGraphProps> = ({
   useEffect(() => {
     if (!data || !location || !data[location]) return;
 
-    const margin = { top: 20, right: 30, bottom: 50, left: 80 };
+    const margin = { top: 50, right: 30, bottom: 50, left: 80 }; // Increased top margin for title
     const width = 800 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
@@ -87,6 +89,16 @@ const StepGraph: React.FC<StepGraphProps> = ({
 
     const yAxis = d3.axisLeft(yScale);
 
+    // Add title to the graph
+    svg
+      .append("text")
+      .attr("x", margin.left + width / 2)
+      .attr("y", margin.top / 2)
+      .attr("text-anchor", "middle")
+      .style("font-size", "18px")
+      .style("font-weight", "bold")
+      .text(title);
+
     graph
       .append("g")
       .attr("transform", `translate(0, ${height})`)
@@ -126,7 +138,7 @@ const StepGraph: React.FC<StepGraphProps> = ({
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", line);
-  }, [data, location, startDate, endDate]); // Added startDate and endDate as dependencies
+  }, [data, location, startDate, endDate, title]); // Added title as dependency
 
   return <svg ref={svgRef} width={800} height={400}></svg>;
 };

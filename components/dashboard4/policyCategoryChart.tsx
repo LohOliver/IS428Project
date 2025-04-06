@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as d3 from 'd3';
+import React, { useEffect, useRef, useState } from "react";
+import * as d3 from "d3";
 
-// Country name to alpha-3 code mapping
+// instead of importing from an external JSON file
 const countryNameToAlpha3: Record<string, string> = {
   Afghanistan: "AFG",
   Albania: "ALB",
@@ -13,7 +13,162 @@ const countryNameToAlpha3: Record<string, string> = {
   Australia: "AUS",
   Austria: "AUT",
   Azerbaijan: "AZE",
-  // ... rest of the mapping (truncated for brevity)
+  Bahamas: "BHS",
+  Bahrain: "BHR",
+  Bangladesh: "BGD",
+  Barbados: "BRB",
+  Belarus: "BLR",
+  Belgium: "BEL",
+  Belize: "BLZ",
+  Benin: "BEN",
+  Bhutan: "BTN",
+  Bolivia: "BOL",
+  "Bosnia and Herzegovina": "BIH",
+  Botswana: "BWA",
+  Brazil: "BRA",
+  Brunei: "BRN",
+  Bulgaria: "BGR",
+  "Burkina Faso": "BFA",
+  Burundi: "BDI",
+  Cambodia: "KHM",
+  Cameroon: "CMR",
+  Canada: "CAN",
+  "Cape Verde": "CPV",
+  "Central African Republic": "CAF",
+  Chad: "TCD",
+  Chile: "CHL",
+  China: "CHN",
+  Colombia: "COL",
+  Comoros: "COM",
+  Congo: "COG",
+  "Costa Rica": "CRI",
+  Croatia: "HRV",
+  Cuba: "CUB",
+  Cyprus: "CYP",
+  "Czech Republic": "CZE",
+  Denmark: "DNK",
+  Djibouti: "DJI",
+  Dominica: "DMA",
+  "Dominican Republic": "DOM",
+  Ecuador: "ECU",
+  Egypt: "EGY",
+  "El Salvador": "SLV",
+  "Equatorial Guinea": "GNQ",
+  Eritrea: "ERI",
+  Estonia: "EST",
+  Eswatini: "SWZ",
+  Ethiopia: "ETH",
+  Fiji: "FJI",
+  Finland: "FIN",
+  France: "FRA",
+  Gabon: "GAB",
+  Gambia: "GMB",
+  Georgia: "GEO",
+  Germany: "DEU",
+  Ghana: "GHA",
+  Greece: "GRC",
+  Grenada: "GRD",
+  Guatemala: "GTM",
+  Guinea: "GIN",
+  "Guinea-Bissau": "GNB",
+  Guyana: "GUY",
+  Haiti: "HTI",
+  Honduras: "HND",
+  Hungary: "HUN",
+  Iceland: "ISL",
+  India: "IND",
+  Indonesia: "IDN",
+  Iran: "IRN",
+  Iraq: "IRQ",
+  Ireland: "IRL",
+  Israel: "ISR",
+  Italy: "ITA",
+  Jamaica: "JAM",
+  Japan: "JPN",
+  Jordan: "JOR",
+  Kazakhstan: "KAZ",
+  Kenya: "KEN",
+  Kiribati: "KIR",
+  Kuwait: "KWT",
+  Kyrgyzstan: "KGZ",
+  Laos: "LAO",
+  Latvia: "LVA",
+  Lebanon: "LBN",
+  Lesotho: "LSO",
+  Liberia: "LBR",
+  Libya: "LBY",
+  Liechtenstein: "LIE",
+  Lithuania: "LTU",
+  Luxembourg: "LUX",
+  Madagascar: "MDG",
+  Malawi: "MWI",
+  Malaysia: "MYS",
+  Maldives: "MDV",
+  Mali: "MLI",
+  Malta: "MLT",
+  Mauritania: "MRT",
+  Mauritius: "MUS",
+  Mexico: "MEX",
+  Moldova: "MDA",
+  Monaco: "MCO",
+  Mongolia: "MNG",
+  Montenegro: "MNE",
+  Morocco: "MAR",
+  Mozambique: "MOZ",
+  Myanmar: "MMR",
+  Namibia: "NAM",
+  Nepal: "NPL",
+  Netherlands: "NLD",
+  "New Zealand": "NZL",
+  Nicaragua: "NIC",
+  Niger: "NER",
+  Nigeria: "NGA",
+  "North Korea": "PRK",
+  "North Macedonia": "MKD",
+  Norway: "NOR",
+  Oman: "OMN",
+  Pakistan: "PAK",
+  Palau: "PLW",
+  Panama: "PAN",
+  "Papua New Guinea": "PNG",
+  Paraguay: "PRY",
+  Peru: "PER",
+  Philippines: "PHL",
+  Poland: "POL",
+  Portugal: "PRT",
+  Qatar: "QAT",
+  Romania: "ROU",
+  Russia: "RUS",
+  Rwanda: "RWA",
+  "Saudi Arabia": "SAU",
+  Senegal: "SEN",
+  Serbia: "SRB",
+  Singapore: "SGP",
+  Slovakia: "SVK",
+  Slovenia: "SVN",
+  "Solomon Islands": "SLB",
+  "South Africa": "ZAF",
+  "South Korea": "KOR",
+  Spain: "ESP",
+  "Sri Lanka": "LKA",
+  Sudan: "SDN",
+  Suriname: "SUR",
+  Sweden: "SWE",
+  Switzerland: "CHE",
+  Syria: "SYR",
+  Taiwan: "TWN",
+  Tajikistan: "TJK",
+  Tanzania: "TZA",
+  Thailand: "THA",
+  Togo: "TGO",
+  Tonga: "TON",
+  "Trinidad and Tobago": "TTO",
+  Tunisia: "TUN",
+  Turkey: "TUR",
+  Turkmenistan: "TKM",
+  Uganda: "UGA",
+  Ukraine: "UKR",
+  "United Arab Emirates": "ARE",
   "United Kingdom": "GBR",
   "United States": "USA",
   Uruguay: "URY",
@@ -25,7 +180,6 @@ const countryNameToAlpha3: Record<string, string> = {
   Yemen: "YEM",
   Zambia: "ZMB",
   Zimbabwe: "ZWE",
-  Singapore: "SGP", // Ensuring Singapore is definitely included
 };
 
 interface PolicyCategoryData {
@@ -78,8 +232,20 @@ const PolicyCategoryPieChart: React.FC<PolicyCategoryPieChartProps> = ({ locatio
       .append("g")
       .attr("transform", `translate(${width/2},${height/2})`);
 
-    // Color scale
-    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    // Custom color palette with more distinct and pleasing colors
+    const customColors = [
+      '#1F77B4', // Blue
+      '#FF7F0E', // Orange
+      '#2CA02C', // Green
+      '#D62728', // Red
+      '#9467BD', // Purple
+      '#8C564B', // Brown
+      '#E377C2', // Pink
+      '#7F7F7F', // Gray
+      '#BCBD22', // Olive
+      '#17BECF'  // Cyan
+    ];
+    const color = d3.scaleOrdinal(customColors);
 
     // Pie generator
     const pie = d3.pie<PolicyCategoryData>()
@@ -105,40 +271,46 @@ const PolicyCategoryPieChart: React.FC<PolicyCategoryPieChartProps> = ({ locatio
       .attr("stroke", "white")
       .attr("stroke-width", "2px");
 
-    // Add labels
-    arcs.append("text")
-      .attr("transform", d => `translate(${arc.centroid(d)})`)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "10px")
-      .text(d => `${d.data.policy_category}\n(${d.data.policy_count})`);
-
-    // Add legend
-    const legend = svg.selectAll(".legend")
-      .data(pie(data))
-      .enter()
-      .append("g")
-      .attr("class", "legend")
-      .attr("transform", (d, i) => `translate(${width/2 + 50}, ${-height/2 + 20 + i * 20})`);
-
-    legend.append("rect")
-      .attr("width", 10)
-      .attr("height", 10)
-      .attr("fill", (d, i) => color(i.toString()));
-
-    legend.append("text")
-      .attr("x", 20)
-      .attr("y", 10)
-      .attr("font-size", "12px")
-      .text(d => `${d.data.policy_category} (${d.data.policy_count})`);
+    // Remove text labels from inside the pie chart
+    // No text labels will be drawn inside the chart
 
   }, [data]);
 
   return (
     <div className="w-full">
       <h2 className="text-xl font-semibold mb-4">Policy Categories for {location}</h2>
-      <div className="flex justify-center items-center">
+      <div className="flex items-center justify-center">
         {data.length > 0 ? (
-          <svg ref={svgRef}></svg>
+          <div className="flex items-center">
+            <svg ref={svgRef}></svg>
+            <div className="ml-4">
+              {data.map((item, index) => (
+                <div key={item.policy_category} className="flex items-center mb-2">
+                  <div 
+                    className="w-4 h-4 mr-2" 
+                    style={{ 
+                      backgroundColor: (() => {
+                        const customColors = [
+                          '#1F77B4', // Blue
+                          '#FF7F0E', // Orange
+                          '#2CA02C', // Green
+                          '#D62728', // Red
+                          '#9467BD', // Purple
+                          '#8C564B', // Brown
+                          '#E377C2', // Pink
+                          '#7F7F7F', // Gray
+                          '#BCBD22', // Olive
+                          '#17BECF'  // Cyan
+                        ];
+                        return customColors[index % customColors.length];
+                      })()
+                    }}
+                  ></div>
+                  <span>{item.policy_category} ({item.policy_count})</span>
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <p className="text-gray-500">No policy data available for {location}</p>
         )}
