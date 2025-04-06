@@ -1295,7 +1295,33 @@ def get_policy_category_distribution():
 
     result = [{"category": category, "count": count} for category, count in query]
     return jsonify(result)
-
+@app.route('/policy_category_count/<country_name>', methods=['GET'])
+def get_policy_category_count(country_name):
+    """
+    Get the count of policies in each category for a specific country.
+    
+    Args:
+        country_name: The ISO code or full name of the country 
+        
+    Returns:
+        JSON object with policy category counts for the specified country
+    """
+    # Query to count policies by category for the given country
+    category_counts = db.session.query(
+        PolicyData.policy_category, 
+        func.count().label('policy_count')
+    ).filter(
+        PolicyData.authorizing_country_iso == country_name
+    ).group_by(PolicyData.policy_category).order_by(func.count().desc()).all()
+    
+    # Convert query results to a dictionary
+    result = [{
+        'policy_category': category,
+        'policy_count': count
+    } for category, count in category_counts]
+    
+    # Return the results
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5002, debug=True)
