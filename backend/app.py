@@ -1205,6 +1205,27 @@ def get_deaths_by_month_and_country():
 
     return jsonify(result)
 
+@app.route('/cases_by_month_and_country', methods=['GET'])
+def get_cases_by_month_and_country():
+    cases_query = db.session.query(
+        CovidData.location,  # Group by country
+        func.date_format(CovidData.date, "%Y-%m").label("year_month"),  # Extract year and month
+        func.max(CovidData.total_cases)
+    ).filter(
+        ~CovidData.location.in_(excluded_locations)
+    ).group_by(
+        CovidData.location, "year_month"
+    ).order_by(CovidData.location, "year_month").all()
+
+    # Format the results to group by country and year-month
+    result = {}
+    for location, year_month, total_cases in cases_query:
+        if location not in result:
+            result[location] = {}
+        result[location][year_month] = total_cases
+
+    return jsonify(result)
+
 
 @app.route('/vaccinations_by_month_and_country', methods=['GET'])
 def get_vaccinations_by_month_and_country():

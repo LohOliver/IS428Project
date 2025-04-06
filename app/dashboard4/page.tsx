@@ -3,6 +3,7 @@ import * as React from "react";
 import { useState } from "react";
 import { DashboardNavbar } from "../../components/navbar";
 import PolicyTimelineChart from "../../components/dashboard4/policyTimeline";
+import StepGraph from "@/components/dashboard4/policyOutcome";
 
 export default function Dashboard4() {
   return (
@@ -22,6 +23,12 @@ export default function Dashboard4() {
         <div className="rounded-lg border bg-card p-4 md:p-6">
           <PolicyTimelineChart />
         </div>
+
+        {/* Policy Timeline Chart Component */}
+        <div className="rounded-lg border bg-card p-4 md:p-6">
+          <StepGraph location="Singapore"/>
+        </div>
+
       </main>
     </div>
   );
