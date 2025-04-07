@@ -196,6 +196,8 @@ interface PolicyData {
   newlyImplemented?: boolean;
   isFirstInGroup?: boolean;
   groupSize?: number;
+  policy_description: string;
+  policy_law_name: string;
 }
 
 interface PolicyCount {
@@ -360,7 +362,7 @@ export function PolicyBreakdown({
         // Clear selected category when date changes
         setSelectedCategory(null);
         setCategoryPolicies([]);
-      } catch (err:any) {
+      } catch (err: any) {
         console.error("Error fetching policy data:", err);
         setError(`Failed to load policy data: ${err.message}`);
         setPolicyData([]);
@@ -791,7 +793,7 @@ export function PolicyBreakdown({
     // Add legend for newly implemented policies
     const legend = g
       .append("g")
-      .attr("transform", `translate(${width - 150}, ${height -220})`);
+      .attr("transform", `translate(${width - 150}, ${height - 220})`);
 
     // Add legend title
     legend
@@ -939,6 +941,135 @@ export function PolicyBreakdown({
                                 ).toLocaleDateString()
                               : "Ongoing"}
                           </div>
+                          {policy.policy_description && (
+                            <div className="col-span-2 mt-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const modal = document.getElementById(
+                                    `policy-modal-${index}`
+                                  );
+                                  if (modal) modal.classList.toggle("hidden");
+                                }}
+                                className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4 mr-1"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                                View Policy Description
+                              </button>
+
+                              {/* Modal for policy description */}
+                              <div
+                                id={`policy-modal-${index}`}
+                                className="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const modal = document.getElementById(
+                                    `policy-modal-${index}`
+                                  );
+                                  if (modal) modal.classList.add("hidden");
+                                }}
+                              >
+                                <div
+                                  className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex justify-between items-center border-b p-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                      Policy Description
+                                    </h3>
+                                    <button
+                                      onClick={() => {
+                                        const modal = document.getElementById(
+                                          `policy-modal-${index}`
+                                        );
+                                        if (modal)
+                                          modal.classList.add("hidden");
+                                      }}
+                                      className="text-gray-400 hover:text-gray-600"
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                  <div className="p-6">
+                                    <h4 className="font-medium text-gray-900 mb-2">
+                                      {policy.policy_subcategory}
+                                    </h4>
+                                    {policy.policy_law_name && (
+                                      <div className="mb-3 text-gray-800">
+                                        <span className="font-medium">
+                                          Law/Policy Name:
+                                        </span>{" "}
+                                        {policy.policy_law_name}
+                                      </div>
+                                    )}
+                                    <p className="text-gray-700 whitespace-pre-line">
+                                      {policy.policy_description}
+                                    </p>
+                                    <div className="mt-4 text-sm text-gray-600 grid grid-cols-2 gap-2">
+                                      <div>
+                                        <span className="font-medium">
+                                          Category:
+                                        </span>{" "}
+                                        {policy.policy_category}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">
+                                          Start Date:
+                                        </span>{" "}
+                                        {policy.effective_start_date
+                                          ? new Date(
+                                              policy.effective_start_date
+                                            ).toLocaleDateString()
+                                          : "N/A"}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">
+                                          End Date:
+                                        </span>{" "}
+                                        {policy.actual_end_date
+                                          ? new Date(
+                                              policy.actual_end_date
+                                            ).toLocaleDateString()
+                                          : "Ongoing"}
+                                      </div>
+                                      {policy.authorizing_country_name && (
+                                        <div>
+                                          <span className="font-medium">
+                                            Country:
+                                          </span>{" "}
+                                          {policy.authorizing_country_name}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           {policy.isFirstInGroup && (
                             <div className="col-span-2 mt-1 text-gray-500 text-xs">
                               <strong>Note:</strong> Similar policies with
