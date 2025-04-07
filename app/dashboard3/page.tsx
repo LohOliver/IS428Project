@@ -17,7 +17,7 @@ export default function Dashboard3() {
       {/* Page Content */}
       <main className="flex-1 space-y-4 p-4 md:p-6">
         <h1 className="text-3xl font-bold">
-          Dashboard 3: Infrastructure & COVID Outcomes
+          Infrastructure & COVID Outcomes Dashboard
         </h1>
 
         {/* Region Filter */}

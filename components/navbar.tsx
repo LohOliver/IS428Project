@@ -10,9 +10,9 @@ export function DashboardNavbar() {
   
   const navItems = [
     { name: "Overview", href: "/" },
-    { name: "Dashboard 2", href: "/dashboard2" },
-    { name: "Dashboard 3", href: "/dashboard3" },
-    { name: "Dashboard 4", href: "/dashboard4" },
+    { name: "Stringency Dashboard", href: "/dashboard2" },
+    { name: "Infrastructure & Covid Outcomes", href: "/dashboard3" },
+    { name: "Policy Timeline", href: "/dashboard4" },
   ];
 
   return (
