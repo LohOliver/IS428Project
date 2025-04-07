@@ -90,10 +90,10 @@ export default function Dashboard2() {
       <main className="flex-1 space-y-4 p-4 md:p-6">
         <header className="mb-6">
           <h1 className="text-3xl font-bold tracking-tight">
-            Global Policy Stringency Dashboard
+            Policy Stringency Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Analysis of COVID-19 policy measures across countries
+            Analysis of COVID-19 policy stringency across countries
           </p>
         </header>
 
