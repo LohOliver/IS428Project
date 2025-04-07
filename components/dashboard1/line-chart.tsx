@@ -15,6 +15,13 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement | null>(null);
+  
+  // Track which continents are selected for display
+  const [selectedContinents, setSelectedContinents] = useState<Record<string, boolean>>({});
+  // Store all available continents
+  const [availableContinents, setAvailableContinents] = useState<string[]>([]);
+  // Active continent for hover highlighting
+  const [activeContinentHover, setActiveContinentHover] = useState<string | null>(null);
 
   // Define endpoints based on data type
   const endpoints: Record<DataType, string> = {
@@ -44,6 +51,18 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
 
         const jsonData = await response.json();
         setData(jsonData);
+        
+        // Extract and set available continents
+        const continents = Object.keys(jsonData);
+        setAvailableContinents(continents);
+        
+        // Initialize all continents as selected
+        const initialSelectedState: Record<string, boolean> = {};
+        continents.forEach(continent => {
+          initialSelectedState[continent] = true;
+        });
+        setSelectedContinents(initialSelectedState);
+        
         setLoading(false);
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -59,7 +78,7 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
     if (data && chartRef.current) {
       createChart();
     }
-  }, [data]);
+  }, [data, selectedContinents, activeContinentHover]); // Redraw when selections change
   
   useEffect(() => {
     const handleResize = () => {
@@ -70,7 +89,30 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
   
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [data]);
+  }, [data, selectedContinents]);
+
+  const toggleContinent = (continent: string) => {
+    setSelectedContinents(prev => ({
+      ...prev,
+      [continent]: !prev[continent]
+    }));
+  };
+
+  const selectAll = () => {
+    const newSelectedState: Record<string, boolean> = {};
+    availableContinents.forEach(continent => {
+      newSelectedState[continent] = true;
+    });
+    setSelectedContinents(newSelectedState);
+  };
+
+  const selectNone = () => {
+    const newSelectedState: Record<string, boolean> = {};
+    availableContinents.forEach(continent => {
+      newSelectedState[continent] = false;
+    });
+    setSelectedContinents(newSelectedState);
+  };
 
   const createChart = () => {
     // Clear previous chart
@@ -86,40 +128,49 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
     // Process data
     const processedData: ProcessedDataItem[] = [];
     Object.entries(data as Record<string, Record<string, number>>).forEach(([continent, monthlyData]) => {
-      Object.entries(monthlyData).forEach(([dateStr, value]) => {
-        const [year, month] = dateStr.split("-").map(Number);
-        const date = new Date(year, month - 1);
+      // Only include selected continents
+      if (selectedContinents[continent]) {
+        Object.entries(monthlyData).forEach(([dateStr, value]) => {
+          const [year, month] = dateStr.split("-").map(Number);
+          const date = new Date(year, month - 1);
 
-        processedData.push({
-          date,
-          continent,
-          value,
+          processedData.push({
+            date,
+            continent,
+            value,
+          });
         });
-      });
+      }
     });
+
+    // If no data to display, show message
+    if (processedData.length === 0) {
+      d3.select(chartRef.current)
+        .append("div")
+        .attr("class", "text-center text-gray-500 p-4")
+        .text("No continents selected. Please select at least one continent to display data.");
+      return;
+    }
 
     // Sort data by date
     processedData.sort((a, b) => a.date.getTime() - b.date.getTime());
 
     // Set up dimensions
     const margin = { top: 40, right: 100, bottom: 80, left: 100 };
-    // Add null check for chartRef.current
     const width = (chartRef.current?.clientWidth || 600) - margin.left - margin.right;
-    // const height = 500 - margin.top - margin.bottom; // Increased from 320 to 500
     const height = chartRef.current?.clientHeight || 400;
 
     // Create SVG
     const svg = d3
       .select(chartRef.current)
       .append("svg")
-      // .attr("width", "100%")
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Get unique continents and dates
-    const continents = Array.from(
+    // Get unique continents and dates from filtered data
+    const activeContinents = Array.from(
       new Set(processedData.map((d) => d.continent))
     );
     const dates = Array.from(new Set(processedData.map((d) => d.date))).sort(
@@ -141,7 +192,7 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
     // Create color scale
     const colorScale = d3
       .scaleOrdinal<string>()
-      .domain(continents)
+      .domain(availableContinents)
       .range(d3.schemeCategory10);
 
     // Create line generator with proper typing
@@ -162,7 +213,7 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
       )
       .selectAll("text")
       .style("text-anchor", "end")
-      .style("font-size", "16px")  // Increased font size for X axis
+      .style("font-size", "16px")
       .attr("dx", "-.8em")
       .attr("dy", ".15em")
       .attr("transform", "rotate(-45)");
@@ -178,7 +229,7 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
         })
       )
       .selectAll("text")
-      .style("font-size", "16px");  // Increased font size for Y axis
+      .style("font-size", "16px");
 
     // Add axis labels with increased font size
     svg
@@ -187,8 +238,8 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
       .attr("text-anchor", "middle")
       .attr("x", width / 2)
       .attr("y", height + margin.bottom)
-      .style("font-size", "16px")  // Increased font size for axis label
-      .style("font-weight", "bold")  // Make it bold for better visibility
+      .style("font-size", "16px")
+      .style("font-weight", "bold")
       .text("Date");
 
     svg
@@ -198,12 +249,12 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
       .attr("transform", "rotate(-90)")
       .attr("x", -height / 2)
       .attr("y", -margin.left + 20)
-      .style("font-size", "16px")  // Increased font size for axis label
-      .style("font-weight", "bold")  // Make it bold for better visibility
+      .style("font-size", "16px")
+      .style("font-weight", "bold")
       .text(yAxisLabels[dataType]);
 
-    // Draw lines for each continent
-    continents.forEach((continent) => {
+    // Draw lines for each selected continent
+    activeContinents.forEach((continent) => {
       const continentData = processedData.filter(
         (d) => d.continent === continent
       );
@@ -213,39 +264,127 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
         // Sort by date to ensure line is drawn correctly
         continentData.sort((a, b) => a.date.getTime() - b.date.getTime());
 
+        // Determine opacity based on hover state
+        const opacity = activeContinentHover 
+          ? (activeContinentHover === continent ? 1.0 : 0.2)
+          : 1.0;
+
         svg
           .append("path")
           .datum(continentData)
           .attr("fill", "none")
           .attr("stroke", colorScale(continent))
-          .attr("stroke-width", 2)
-          .attr("d", lineGenerator);
+          .attr("stroke-width", activeContinentHover === continent ? 3 : 2)
+          .attr("opacity", opacity)
+          .attr("d", lineGenerator)
+          .attr("class", `line-${continent}`);
       }
     });
 
-    // Add legend with increased text size
+    // Add tooltip
+    const tooltip = d3.select(chartRef.current)
+      .append("div")
+      .style("position", "absolute")
+      .style("visibility", "hidden")
+      .style("background-color", "white")
+      .style("border", "1px solid #ddd")
+      .style("border-radius", "4px")
+      .style("padding", "8px")
+      .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)")
+      .style("pointer-events", "none");
+
+    // Add overlay for mouse tracking
+    const mouseG = svg.append("g")
+      .attr("class", "mouse-over-effects");
+
+    mouseG.append("rect")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("fill", "none")
+      .attr("pointer-events", "all")
+      .on("mousemove", function(event) {
+        const mouse = d3.pointer(event);
+        const dateOnX = xScale.invert(mouse[0]);
+        
+        // Find closest date in the data
+        const bisectDate = d3.bisector((d: ProcessedDataItem) => d.date).left;
+        
+        // Show vertical line at mouse position
+        verticalLine
+          .attr("x1", mouse[0])
+          .attr("x2", mouse[0])
+          .style("visibility", "visible");
+        
+        // Update tooltip for each active continent
+        const tooltipContent = activeContinents.map(continent => {
+          const continentData = processedData.filter(d => d.continent === continent);
+          if (continentData.length === 0) return null;
+          
+          const index = bisectDate(continentData, dateOnX, 1);
+          const a = continentData[index - 1];
+          const b = continentData[index] || a;
+          const d = dateOnX.getTime() - a.date.getTime() > b.date.getTime() - dateOnX.getTime() ? b : a;
+          
+          return `<div style="color:${colorScale(continent)}">
+            <strong>${continent}</strong>: ${d3.format(",")(d.value)}
+          </div>`;
+        }).filter(Boolean).join("");
+        
+        if (tooltipContent) {
+          const formatDate = d3.timeFormat("%b %Y");
+          tooltip
+            .style("visibility", "visible")
+            .style("left", `${event.pageX + 15}px`)
+            .style("top", `${event.pageY - 30}px`)
+            .html(`<div><strong>${formatDate(dateOnX)}</strong></div>${tooltipContent}`);
+        }
+      })
+      .on("mouseout", function() {
+        verticalLine.style("visibility", "hidden");
+        tooltip.style("visibility", "hidden");
+      });
+    
+    // Add vertical line for tooltip
+    const verticalLine = mouseG.append("line")
+      .attr("y1", 0)
+      .attr("y2", height)
+      .attr("stroke", "#999")
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "3,3")
+      .style("visibility", "hidden");
+
+    // Add interactive legend with hover effect
     const legend = svg
       .append("g")
       .attr("class", "legend")
-      .attr("transform", `translate(${width - 100}, 0)`);
+      .attr("transform", `translate(${width + 20}, 0)`);
 
-    continents.forEach((continent, i) => {
+    // Only show available continents in legend
+    availableContinents.forEach((continent, i) => {
       const legendRow = legend
         .append("g")
-        .attr("transform", `translate(0, ${i * 25})`);  // Increased spacing between items
+        .attr("transform", `translate(0, ${i * 25})`)
+        .style("cursor", "pointer")
+        .style("opacity", selectedContinents[continent] ? 1.0 : 0.5) // Dim unselected
+        .on("mouseover", function() {
+          setActiveContinentHover(continent);
+        })
+        .on("mouseout", function() {
+          setActiveContinentHover(null);
+        });
 
       legendRow
         .append("rect")
-        .attr("width", 12)  // Slightly larger rectangle
+        .attr("width", 12)
         .attr("height", 12)
         .attr("fill", colorScale(continent));
 
       legendRow
         .append("text")
-        .attr("x", 20)  // Increased spacing after the color box
+        .attr("x", 20)
         .attr("y", 10)
         .attr("text-anchor", "start")
-        .style("font-size", "13px")  // Increased font size for legend
+        .style("font-size", "13px")
         .text(continent);
     });
   };
@@ -266,7 +405,51 @@ const ContinentCasesChart: React.FC<ContinentCasesChartProps> = ({ dataType = "c
 
       {!loading && !error && (
         <div className="w-full h-full">
-          {/* <div ref={chartRef} className="w-full h-full min-h-96" /> */}
+          {/* Controls to toggle continents */}
+          <div className="mb-4 p-2 border border-gray-200 rounded bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium">Filter Continents</h3>
+              <div className="space-x-2">
+                <button 
+                  onClick={selectAll}
+                  className="px-2 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Select All
+                </button>
+                <button 
+                  onClick={selectNone}
+                  className="px-2 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableContinents.map(continent => (
+                <label 
+                  key={continent} 
+                  className="flex items-center cursor-pointer border rounded px-2 py-1 hover:bg-gray-100"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedContinents[continent] || false}
+                    onChange={() => toggleContinent(continent)}
+                    className="mr-1"
+                  />
+                  <span 
+                    className="text-sm"
+                    style={{ 
+                      color: d3.scaleOrdinal<string>()
+                        .domain(availableContinents)
+                        .range(d3.schemeCategory10)(continent) 
+                    }}
+                  >
+                    {continent}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
           <div ref={chartRef} className="w-full h-full min-h-[400px]" />
         </div>
       )}
