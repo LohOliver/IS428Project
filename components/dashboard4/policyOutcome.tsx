@@ -365,12 +365,12 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
           .attr("fill", "red")
           .on("mouseover", function (event) {
             if (tooltipRef.current) {
-              const [x, y] = d3.pointer(event, svgRef.current);
+              const { clientX, clientY } = event;
               const formattedDate = d3.timeFormat("%a, %d %b %Y")(pDate);
               d3.select(tooltipRef.current)
                 .style("opacity", 1)
-                .style("left", `${x + margin.left + 10}px`)
-                .style("top", `${y + margin.top - 10}px`)
+                .style("left", `${clientX + 10}px`)
+                .style("top", `${clientY - 10}px`)
                 .html(
                   `<strong>${policy.policy_category}${effectivenessText}</strong><br/>
                    <em>${formattedDate}</em>`
@@ -392,7 +392,7 @@ const NewCasesGraph: React.FC<NewCasesGraphProps> = ({
       <div
         ref={tooltipRef}
         style={{
-          position: "absolute",
+          position: "fixed",
           opacity: 0,
           pointerEvents: "none",
           backgroundColor: "white",

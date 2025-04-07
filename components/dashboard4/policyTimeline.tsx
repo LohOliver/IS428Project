@@ -867,12 +867,13 @@ const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChang
 
         // Format countries list
         const countriesList = Array.from(d.countryNames).join(", ");
+        const { clientX, clientY } = event;
 
         // Position and show tooltip
         tooltip
           .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 28}px`).html(`
+          .style("left", `${clientX + 30}px`)
+          .style("top", `${clientY - 28}px`).html(`
             <div class="font-bold">${
               filters.category ? d.subcategory || "Unknown" : d.category
             }</div>
@@ -1231,7 +1232,7 @@ const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChang
         {/* Tooltip */}
         <div
           ref={tooltipRef}
-          className="absolute bg-white p-2 rounded shadow-lg border text-sm pointer-events-none z-10"
+          className="fixed bg-white p-2 rounded shadow-lg border text-sm pointer-events-none z-10"
           style={{
             opacity: 0,
             transition: "opacity 0.2s",
