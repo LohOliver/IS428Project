@@ -1222,7 +1222,7 @@ const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChang
       </div>
 
       {/* Timeline Chart */}
-      <div className="relative border rounded p-4 bg-white">
+      <div className="relative border rounded p-4 bg-white overflow-auto">
         <svg
           ref={svgRef}
           className="w-full overflow-visible"
