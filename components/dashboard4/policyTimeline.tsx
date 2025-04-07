@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import * as d3 from "d3";
+import { CATEGORY_COLORS } from "../ui/sharedColorMap";
 
 // TypeScript interfaces
 interface Policy {
@@ -754,33 +755,6 @@ const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChang
       .range([0, height])
       .padding(0.2);
 
-    // Categorical color scale instead of intensity
-    const colorScale = d3
-      .scaleOrdinal()
-      .domain(yDomain)
-      .range([
-        "#4e79a7",
-        "#f28e2c",
-        "#e15759",
-        "#76b7b2",
-        "#59a14f",
-        "#edc949",
-        "#af7aa1",
-        "#ff9da7",
-        "#9c755f",
-        "#bab0ab",
-        "#6b9ac4",
-        "#d7b5a6",
-        "#668eb2",
-        "#f1a55b",
-        "#e68d8e",
-        "#a2d9d5",
-        "#8bbc81",
-        "#f4d279",
-        "#c9a6c5",
-        "#ffccd0",
-      ]); // 20 distinct colors
-
     // X axis
     chart
       .append("g")
@@ -849,11 +823,10 @@ const PolicyTimelineChart: React.FC<PolicyTimelineChartProps> = ({ onFilterChang
       .attr("rx", 6) // Rounded corners
       .attr("ry", 6)
       .style("fill", (d: AggregatedPolicy) => {
-        const label = filters.category
-          ? d.subcategory || "Unknown"
-          : d.category;
-        return colorScale(label) as string;
+        const label = filters.category ? d.subcategory || "Unknown" : d.category;
+        return CATEGORY_COLORS[label] || "#ccc";
       })
+      
       // Use dashed stroke for bars that contain active policies
       .style("stroke", "#333")
       .style("stroke-width", 1)

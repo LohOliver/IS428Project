@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
+import { CATEGORY_COLORS } from '../ui/sharedColorMap';
 
 // instead of importing from an external JSON file
 const countryNameToAlpha3: Record<string, string> = {
@@ -198,15 +199,13 @@ const PolicyCategoryPieChart: React.FC<PolicyCategoryPieChartProps> = ({ locatio
   useEffect(() => {
     const fetchPolicyCategoryData = async () => {
       try {
-        // Convert location to alpha-3 code if mapping exists, otherwise use original location
         const countryCode = countryNameToAlpha3[location] || location;
-        
         const response = await fetch(`https://is428project.onrender.com/policy_category_count/${countryCode}`);
         const jsonData = await response.json();
         setData(jsonData);
       } catch (error) {
-        console.error('Error fetching policy category data:', error);
-        setData([]); // Ensure data is reset on error
+        console.error("Error fetching policy category data:", error);
+        setData([]);
       }
     };
 
@@ -216,64 +215,42 @@ const PolicyCategoryPieChart: React.FC<PolicyCategoryPieChartProps> = ({ locatio
   useEffect(() => {
     if (!data.length || !svgRef.current) return;
 
-    // Clear any existing SVG content
     d3.select(svgRef.current).selectAll("*").remove();
 
-    // Set up dimensions
     const width = 400;
     const height = 400;
     const margin = 40;
     const radius = Math.min(width, height) / 2 - margin;
 
-    // Create SVG
-    const svg = d3.select(svgRef.current)
+    const svg = d3
+      .select(svgRef.current)
       .attr("width", width)
       .attr("height", height)
       .append("g")
-      .attr("transform", `translate(${width/2},${height/2})`);
+      .attr("transform", `translate(${width / 2},${height / 2})`);
 
-    // Custom color palette with more distinct and pleasing colors
-    const customColors = [
-      '#1F77B4', // Blue
-      '#FF7F0E', // Orange
-      '#2CA02C', // Green
-      '#D62728', // Red
-      '#9467BD', // Purple
-      '#8C564B', // Brown
-      '#E377C2', // Pink
-      '#7F7F7F', // Gray
-      '#BCBD22', // Olive
-      '#17BECF'  // Cyan
-    ];
-    const color = d3.scaleOrdinal(customColors);
-
-    // Pie generator
-    const pie = d3.pie<PolicyCategoryData>()
-      .value(d => d.policy_count)
+    const pie = d3
+      .pie<PolicyCategoryData>()
+      .value((d) => d.policy_count)
       .sort(null);
 
-    // Arc generator
-    const arc = d3.arc<d3.PieArcDatum<PolicyCategoryData>>()
+    const arc = d3
+      .arc<d3.PieArcDatum<PolicyCategoryData>>()
       .innerRadius(0)
       .outerRadius(radius);
 
-    // Create pie chart
     const arcs = svg.selectAll(".arc")
       .data(pie(data))
       .enter()
       .append("g")
       .attr("class", "arc");
 
-    // Draw arcs
-    arcs.append("path")
+    arcs
+      .append("path")
       .attr("d", arc)
-      .attr("fill", (d, i) => color(i.toString()))
+      .attr("fill", (d) => CATEGORY_COLORS[d.data.policy_category] || "#ccc")
       .attr("stroke", "white")
       .attr("stroke-width", "2px");
-
-    // Remove text labels from inside the pie chart
-    // No text labels will be drawn inside the chart
-
   }, [data]);
 
   return (
@@ -284,29 +261,17 @@ const PolicyCategoryPieChart: React.FC<PolicyCategoryPieChartProps> = ({ locatio
           <div className="flex items-center">
             <svg ref={svgRef}></svg>
             <div className="ml-4">
-              {data.map((item, index) => (
+              {data.map((item) => (
                 <div key={item.policy_category} className="flex items-center mb-2">
-                  <div 
-                    className="w-4 h-4 mr-2" 
-                    style={{ 
-                      backgroundColor: (() => {
-                        const customColors = [
-                          '#1F77B4', // Blue
-                          '#FF7F0E', // Orange
-                          '#2CA02C', // Green
-                          '#D62728', // Red
-                          '#9467BD', // Purple
-                          '#8C564B', // Brown
-                          '#E377C2', // Pink
-                          '#7F7F7F', // Gray
-                          '#BCBD22', // Olive
-                          '#17BECF'  // Cyan
-                        ];
-                        return customColors[index % customColors.length];
-                      })()
+                  <div
+                    className="w-4 h-4 mr-2"
+                    style={{
+                      backgroundColor: CATEGORY_COLORS[item.policy_category] || "#ccc",
                     }}
                   ></div>
-                  <span>{item.policy_category} ({item.policy_count})</span>
+                  <span>
+                    {item.policy_category} ({item.policy_count})
+                  </span>
                 </div>
               ))}
             </div>
