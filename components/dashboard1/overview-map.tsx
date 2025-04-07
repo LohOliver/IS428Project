@@ -668,9 +668,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
           )}
         </div>
       </div>
-      <div className="absolute bottom-2 right-2 text-xs text-gray-500">
-        Data source: Local API
-      </div>
+
       <div className="absolute top-12 left-2 bg-white bg-opacity-80 p-2 rounded text-xs">
         Click on a country to see detailed COVID-19 statistics
       </div>
