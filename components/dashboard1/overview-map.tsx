@@ -32,6 +32,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<SelectedCountryData | null>(null);
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+  const [reverseMap, setReverseMap] = useState<{ [key: string]: string }>({});
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const infoCardRef = useRef<HTMLDivElement>(null);
