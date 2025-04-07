@@ -508,13 +508,13 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
   function getDataTypeLabel(dataType: CovidDataType): string {
     switch (dataType) {
       case "cases":
-        return "Percentage of Cases";
+        return "Case Rate (% of Population)";
       case "deaths":
-        return "Percentage of Deaths";
+        return "Death Rate (% of Cases)";
       case "recovered":
-        return "Percentage of Recovery";
+        return "Recovery Rate (% of Cases)";
       case "vaccinated":
-        return "Percentage of Vaccination";
+        return "Vaccination Rate (% of Population)";
       default:
         return "Percentage";
     }

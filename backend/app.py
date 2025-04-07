@@ -385,7 +385,7 @@ def get_top10_countries_by_cases():
     Returns:
         JSON response with the structure:
         {
-            "country_name": max_total_cases_value,
+            "country_name": max_total_cases_percentage,
             ...
         }
     """    
@@ -393,7 +393,7 @@ def get_top10_countries_by_cases():
     # Query to get the maximum total cases for each country
     max_cases_query = db.session.query(
         CovidData.location,
-        (func.max(CovidData.total_cases) / func.max(CovidData.population)).label("max_total_cases")
+        (func.round((func.max(CovidData.total_cases) / func.max(CovidData.population)) * 100, 2)).label("max_total_cases_percent")
     ).filter(
         CovidData.total_cases.isnot(None),  # Filter out NULL values
         ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
@@ -404,7 +404,7 @@ def get_top10_countries_by_cases():
     ).limit(10)  # Limit to top 10
     
     # Format the result as a dictionary
-    result = {location: max_cases for location, max_cases in max_cases_query}
+    result = {location: max_cases_percent for location, max_cases_percent in max_cases_query}
     
     return jsonify(result)
 
@@ -412,33 +412,34 @@ def get_top10_countries_by_cases():
 
 @app.route('/top10_countries_by_deaths', methods=['GET'])
 def get_top_10_countries_by_death_rate():
-
     """
-    Get the maximum total COVID-19 deaths for each country.
+    Get the top 10 countries with the highest COVID-19 death rate (deaths as percentage of cases).
     
     Returns:
         JSON response with the structure:
         {
-            "country_name": max_total_deaths_value,
+            "country_name": death_rate_percentage,
             ...
         }
     """
-    # Query to get the maximum total deaths for each country
-    max_total_deaths_query = db.session.query(
+    # Query to get the death rate (deaths per cases) for each country
+    death_rate_query = db.session.query(
         CovidData.location,
-        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases))
-    ).group_by(
-        CovidData.location
+        func.round((func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)) * 100, 2).label("death_rate_percent")
     ).filter(
         CovidData.total_deaths.isnot(None),
+        CovidData.total_cases.isnot(None),  # Ensure both deaths and cases are not NULL
         ~CovidData.location.in_(excluded_locations)
-        # Filter out NULL values
+    ).group_by(
+        CovidData.location
+    ).having(
+        func.max(CovidData.total_cases) > 0  # Prevent division by zero using HAVING instead of WHERE
     ).order_by(
-        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)).desc()  # Sort in descending order
+        (func.max(CovidData.total_deaths) / func.max(CovidData.total_cases)).desc()  # Sort by death rate in descending order
     ).limit(10)
     
     # Format the result as a dictionary
-    result = {location: max_deaths for location, max_deaths in max_total_deaths_query}
+    result = {location: death_rate for location, death_rate in death_rate_query}
     
     return jsonify(result)
 
@@ -446,41 +447,59 @@ def get_top_10_countries_by_death_rate():
 
 @app.route('/top10_countries_by_recovered', methods=['GET'])
 def get_top10_countries_by_recovered():
-    recovered_query =  get_total_recovered_by_country().json
-    top_10_recovered = dict(sorted(recovered_query.items(), key=lambda x: x[1], reverse=True)[:10])
+    """
+    Get the top 10 countries with the highest COVID-19 recovery rates.
+    
+    Returns:
+        JSON response with the structure:
+        {
+            "country_name": recovery_rate_percentage,
+            ...
+        }
+    """
+    # Get the recovery data from the existing function
+    recovered_data = get_total_recovered_by_country().json
+    
+    # If the data isn't already in percentage format with 2 decimal places,
+    # convert it here (assuming the values need to be multiplied by 100 and rounded)
+    formatted_data = {country: round(rate * 100, 2) if isinstance(rate, (int, float)) else rate 
+                     for country, rate in recovered_data.items()}
+    
+    # Get the top 10 countries by recovery rate
+    top_10_recovered = dict(sorted(formatted_data.items(), key=lambda x: x[1], reverse=True)[:10])
 
     return jsonify(top_10_recovered)
 
 @app.route('/top10_countries_by_vaccination', methods=['GET'])
 def get_top10_countries_by_vaccination():
     """
-    Get the top 10 countries with the highest COVID-19 vaccination counts.
+    Get the top 10 countries with the highest COVID-19 vaccination rates (percentage of population).
     Uses maximum vaccination count for each country rather than latest date.
     Excludes regions, continents, and other non-country entities.
     
     Returns:
         JSON response with the structure:
         {
-            "country_name": max_vaccination_value,
+            "country_name": vaccination_rate_percentage,
             ...
         }
     """
     
-    # Query to get the maximum vaccination count for each country
+    # Query to get the maximum vaccination rate for each country as a percentage with 2 decimal places
     max_vaccination_query = db.session.query(
         CovidData.location,
-        (func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population)).label("max_vaccinated")
+        func.least(func.round((func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population)) * 100, 2), 100).label("vaccination_rate_percent")
     ).filter(
         CovidData.people_fully_vaccinated.isnot(None),
         ~CovidData.location.in_(excluded_locations)  # Exclude non-countries
     ).group_by(
         CovidData.location
     ).order_by(
-        func.max(CovidData.people_fully_vaccinated).desc()  # Order by max vaccinated count
+        (func.max(CovidData.people_fully_vaccinated) / func.max(CovidData.population)).desc()  # Order by vaccination rate
     ).limit(10)  # Limit to top 10
     
     # Format the result as a dictionary
-    result = {location: max_vaccinated for location, max_vaccinated in max_vaccination_query}
+    result = {location: vaccination_rate for location, vaccination_rate in max_vaccination_query}
     
     return jsonify(result)
 
