@@ -10,6 +10,7 @@ cd venv/Scripts
 ./activate
 pip install -r requirements.txt
 python app.py
+// --> "IF you choose to run local, backend can be accessed via http://localhost:5002/... " 
 
 To run vercel:
 1. Go to https://is428project.onrender.com/health and wait ~25 seconds for it to return a response as the server is most likely down due to inactivity. Once the server is up, the frontend will work with no downtime.
