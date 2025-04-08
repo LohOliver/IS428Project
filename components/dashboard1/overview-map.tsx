@@ -477,7 +477,7 @@ const CovidWorldMap: React.FC<CovidWorldMapProps> = ({
         .attr("x", legendWidth / 2)
         .attr("y", -10)
         .attr("text-anchor", "middle")
-        .text(`COVID-19 ${getDataTypeLabel(dataType)} (Probability)`);
+        .text(`COVID-19 ${getDataTypeLabel(dataType)}`);
     } catch (error) {
       console.error("Error creating map:", error);
       setError(

@@ -95,7 +95,7 @@ export default function CovidStatsPanel() {
 
         />
         <StatCard
-          title="Estimated Recovered"
+          title="Total Recovered"
           value={Math.round(stats.total_estimated_recovered)}
           icon={<Heart className="h-8 w-8 text-green-500" />}
           color="green"
